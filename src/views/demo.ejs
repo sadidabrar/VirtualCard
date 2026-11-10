@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Glass Design System — Foundation Preview</title>
+  <link rel="stylesheet" href="/css/glass.css">
+  <style>
+    /* Demo Page Layout Styles */
+    .demo-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 5rem;
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .demo-header h1 {
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 30%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .demo-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (min-width: 900px) {
+      .demo-grid-2 {
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+    }
+
+    .demo-section-title {
+      font-size: 1.25rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--text-main);
+    }
+
+    .demo-palette-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .demo-color-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: transform var(--motion-fast);
+    }
+
+    .demo-color-btn:hover {
+      transform: scale(1.12);
+    }
+
+    .component-shelf {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      align-items: center;
+    }
+
+    /* Fallback test classes */
+    body.force-reduced-transparency .glass-panel,
+    body.force-reduced-transparency .glass-pill,
+    body.force-reduced-transparency .vcard-preview-card,
+    body.force-reduced-transparency .glass-qr-frame,
+    body.force-reduced-transparency .glass-input {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background: rgba(18, 20, 26, 0.97) !important;
+    }
+
+    body.force-no-blur .glass-panel,
+    body.force-no-blur .glass-pill,
+    body.force-no-blur .vcard-preview-card,
+    body.force-no-blur .glass-qr-frame {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background: rgba(20, 22, 30, 0.94) !important;
+      border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Dynamic Background (Aurora + Noise) -->
+  <div class="aurora-bg">
+    <div class="aurora-blob aurora-blob-1"></div>
+    <div class="aurora-blob aurora-blob-2"></div>
+    <div class="aurora-blob aurora-blob-3"></div>
+  </div>
+  <div class="noise-overlay"></div>
+
+  <div class="demo-container">
+    <!-- Header -->
+    <header class="demo-header glass-enter delay-1">
+      <div style="margin-bottom: 0.85rem;">
+        <span class="glass-badge">
+          <span class="glass-badge-dot"></span>
+          Phase 2 Foundation Demo
+        </span>
+      </div>
+      <h1>Liquid Glass Design System</h1>
+      <p style="max-width: 650px; margin: 0 auto;">
+        Interactive preview of the iOS 26 / macOS Tahoe inspired glassmorphic tokens, specular light catch, tactile micro-interactions, and WCAG AA accessibility fallbacks.
+      </p>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="demo-grid-2">
+      <!-- Left Column: Primitives & Controls -->
+      <div class="component-shelf glass-enter delay-2">
+        <!-- Accent Palette Switcher -->
+        <div class="glass-panel">
+          <h2 class="demo-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/></svg>
+            Dynamic Glass Tint Palette
+          </h2>
+          <p style="margin-bottom: 1rem; font-size: 0.875rem;">
+            Select an accent to observe how <code>color-mix()</code> automatically tints glass surfaces, specular highlights, and ambient glow:
+          </p>
+          <div class="demo-palette-row">
+            <button class="demo-color-btn" style="background: #38bdf8; outline: 3px solid #38bdf8; outline-offset: 2px;" data-accent="#38bdf8" data-rgb="56, 189, 248" title="Electric Sky (Default)"></button>
+            <button class="demo-color-btn" style="background: #a855f7;" data-accent="#a855f7" data-rgb="168, 85, 247" title="Vivid Purple"></button>
+            <button class="demo-color-btn" style="background: #10b981;" data-accent="#10b981" data-rgb="16, 185, 129" title="Emerald Green"></button>
+            <button class="demo-color-btn" style="background: #f43f5e;" data-accent="#f43f5e" data-rgb="244, 63, 94" title="Rose Sunset"></button>
+            <button class="demo-color-btn" style="background: #f59e0b;" data-accent="#f59e0b" data-rgb="245, 158, 11" title="Amber Gold"></button>
+          </div>
+        </div>
+
+        <!-- Interactive Form Elements -->
+        <div class="glass-panel">
+          <h2 class="demo-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            Glass Form Inputs & Live Binding
+          </h2>
+          <div class="glass-form-group">
+            <label class="glass-label" for="demo-name-input">Full Name</label>
+            <input class="glass-input" id="demo-name-input" type="text" value="<%= demoData.name %>" placeholder="e.g. Mahbub Khan">
+          </div>
+          <div class="glass-form-group">
+            <label class="glass-label" for="demo-role-input">Job Title</label>
+            <input class="glass-input" id="demo-role-input" type="text" value="<%= demoData.role %>" placeholder="e.g. Principal Architect">
+          </div>
+          <div class="glass-form-group">
+            <label class="glass-label" for="demo-company-input">Company</label>
+            <input class="glass-input" id="demo-company-input" type="text" value="<%= demoData.company %>" placeholder="e.g. Apex Cloud Systems">
+          </div>
+          <div class="glass-form-group">
+            <label class="glass-label" for="demo-tagline-input">Tagline</label>
+            <input class="glass-input" id="demo-tagline-input" type="text" value="<%= demoData.tagline %>" placeholder="e.g. Building distributed cloud infrastructure">
+          </div>
+        </div>
+
+        <!-- Buttons, Pills & Tactile Micro-Interactions -->
+        <div class="glass-panel">
+          <h2 class="demo-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+            Interactive Buttons & Tactile Switch
+          </h2>
+          <div class="button-row" style="margin-bottom: 1.5rem;">
+            <button class="glass-pill glass-btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              Primary Action
+            </button>
+            <button class="glass-pill glass-btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Download QR
+            </button>
+            <span class="glass-badge">
+              <span class="glass-badge-dot"></span>
+              Live Tenant
+            </span>
+          </div>
+
+          <div style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+            <label class="glass-toggle-wrap">
+              <input type="checkbox" checked>
+              <span class="glass-toggle">
+                <span class="glass-toggle-thumb"></span>
+              </span>
+              <span class="glass-label">Published Subdomain</span>
+            </label>
+
+            <label class="glass-toggle-wrap">
+              <input type="checkbox">
+              <span class="glass-toggle">
+                <span class="glass-toggle-thumb"></span>
+              </span>
+              <span class="glass-label">Show QR Badge</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Accessibility Simulation Inspector -->
+        <div class="glass-panel">
+          <h2 class="demo-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            Accessibility & Fallback Inspector
+          </h2>
+          <p style="margin-bottom: 1rem; font-size: 0.85rem;">
+            Test fallback behaviors for users with specific OS accessibility preferences or legacy hardware:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <label class="glass-toggle-wrap">
+              <input type="checkbox" id="sim-reduced-transparency">
+              <span class="glass-toggle">
+                <span class="glass-toggle-thumb"></span>
+              </span>
+              <span class="glass-label">Simulate Reduced Transparency (Solid Dark)</span>
+            </label>
+            <label class="glass-toggle-wrap">
+              <input type="checkbox" id="sim-no-blur">
+              <span class="glass-toggle">
+                <span class="glass-toggle-thumb"></span>
+              </span>
+              <span class="glass-label">Simulate No <code>backdrop-filter</code> Support</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Glass Business Card & QR Preview -->
+      <div class="component-shelf glass-enter delay-3">
+        <!-- Live Card Centerpiece with 3D Tilt -->
+        <div style="display: flex; justify-content: center;">
+          <div class="vcard-preview-card" id="interactive-tilt-card">
+            <!-- Avatar -->
+            <div class="vcard-avatar-wrap">
+              <img class="vcard-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23ffffff'/%3E%3Cpath d='M25 80c0-14 11-24 25-24s25 10 25 24' fill='%23ffffff'/%3E%3C/svg%3E" alt="Avatar">
+            </div>
+
+            <!-- Card Details -->
+            <h2 class="vcard-name" id="preview-name"><%= demoData.name %></h2>
+            <div class="vcard-role" id="preview-role"><%= demoData.role %></div>
+            <div class="vcard-company" id="preview-company"><%= demoData.company %></div>
+            <div class="vcard-tagline" id="preview-tagline"><%= demoData.tagline %></div>
+
+            <!-- Action Buttons -->
+            <div class="vcard-actions">
+              <a href="tel:+1234567890" class="glass-pill glass-btn-primary" style="justify-content: center;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Call Contact
+              </a>
+              <a href="#" class="glass-pill glass-btn-secondary" style="justify-content: center;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                Save Contact (.vcf)
+              </a>
+            </div>
+
+            <!-- Social Row -->
+            <div class="vcard-socials-row">
+              <a href="#" class="vcard-social-icon" aria-label="LinkedIn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+              </a>
+              <a href="#" class="vcard-social-icon" aria-label="GitHub">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/></svg>
+              </a>
+              <a href="#" class="vcard-social-icon" aria-label="Website">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              </a>
+            </div>
+
+            <!-- Footer Powered by link -->
+            <div style="margin-top: 1.75rem; font-size: 0.75rem; color: var(--text-dim);">
+              Powered by <span style="color: var(--accent);">virtualcard.duckdns.org</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strict Rule 10: QR on Solid White Background inside Glass Frame -->
+        <div style="display: flex; justify-content: center; margin-top: 1rem;">
+          <div class="glass-qr-frame">
+            <div style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; text-align: center;">
+              QR Code (Solid White Surface — Never On Glass)
+            </div>
+            <!-- The QR itself is enclosed on a pure solid white card -->
+            <div class="solid-qr-card">
+              <img src="<%= qrDataUrl %>" alt="QR Code Sample" width="160" height="160">
+            </div>
+            <div style="margin-top: 0.85rem; font-size: 0.75rem; color: var(--text-dim); text-align: center;">
+              https://mahbubkhan.virtualcard.duckdns.org
+            </div>
+          </div>
+        </div>
+
+        <!-- Rotating Light Sweep (Success Frame Preview) -->
+        <div style="display: flex; justify-content: center; margin-top: 1rem;">
+          <div class="glass-sweep-wrap">
+            <div class="glass-sweep-content" style="text-align: center; max-width: 320px;">
+              <span class="glass-badge" style="margin-bottom: 0.65rem;">
+                <span class="glass-badge-dot"></span>
+                Rotating Specular Sweep
+              </span>
+              <p style="font-size: 0.825rem; color: var(--text-muted);">
+                Used on the signup success screen to celebrate instant subdomain provisioning.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/demo.js"></script>
+</body>
+</html>
