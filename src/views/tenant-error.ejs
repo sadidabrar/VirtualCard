@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> — VirtualCard</title>
+  <link rel="stylesheet" href="/css/glass.css">
+  <style>
+    :root {
+      --accent: <%= accent || '#38bdf8' %>;
+      --accent-glow: <%= (accent === '#f43f5e') ? 'rgba(244, 63, 94, 0.4)' : 'rgba(56, 189, 248, 0.4)' %>;
+    }
+
+    .error-viewport {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .error-card {
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      padding: 3rem 2rem;
+    }
+
+    .error-icon-wrap {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 1.5rem;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--accent) 15%, rgba(255, 255, 255, 0.05));
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, rgba(255, 255, 255, 0.2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Glass Background -->
+  <div class="aurora-bg">
+    <div class="aurora-blob aurora-blob-1"></div>
+    <div class="aurora-blob aurora-blob-2"></div>
+    <div class="aurora-blob aurora-blob-3"></div>
+  </div>
+  <div class="noise-overlay"></div>
+
+  <main class="error-viewport">
+    <div class="glass-panel error-card glass-enter">
+      <div class="error-icon-wrap">
+        <% if (badge.includes('Suspended')) { %>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <% } else { %>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <% } %>
+      </div>
+
+      <div style="margin-bottom: 0.75rem;">
+        <span class="glass-badge">
+          <span class="glass-badge-dot"></span>
+          <%= badge %>
+        </span>
+      </div>
+
+      <h1 style="font-size: 1.75rem; margin-bottom: 0.85rem;"><%= heading %></h1>
+      <p style="margin-bottom: 2rem; font-size: 0.95rem;"><%= message %></p>
+
+      <a href="<%= ctaLink %>" class="glass-pill glass-btn-primary" style="justify-content: center; width: 100%;">
+        <%= ctaText %>
+      </a>
+
+      <div style="margin-top: 2rem; font-size: 0.75rem; color: var(--text-dim);">
+        Powered by <a href="/" style="color: var(--accent); text-decoration: underline;">virtualcard.duckdns.org</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
