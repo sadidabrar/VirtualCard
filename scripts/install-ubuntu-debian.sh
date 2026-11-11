@@ -77,14 +77,22 @@ prompt_var() {
   printf -v "$var_name" '%s' "$input"
 }
 
-REPO_URL="${REPO_URL:-}"
-while [[ -z "${REPO_URL}" ]]; do
-  prompt_var REPO_URL "Git repository URL for VirtualCard (e.g. https://github.com/user/VirtualCard.git)"
-done
-
 BRANCH="${BRANCH:-master}"
 APP_DIR="${APP_DIR:-/opt/virtualcard}"
 APP_USER="${APP_USER:-virtualcard}"
+
+SCRIPT_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)"
+DETECTED_REPO_URL=""
+if [[ -d "${APP_DIR}/.git" ]]; then
+  DETECTED_REPO_URL="$(git -C "$APP_DIR" remote get-url origin 2>/dev/null || true)"
+elif [[ -n "$SCRIPT_REPO_DIR" ]] && [[ -d "${SCRIPT_REPO_DIR}/.git" ]]; then
+  DETECTED_REPO_URL="$(git -C "$SCRIPT_REPO_DIR" remote get-url origin 2>/dev/null || true)"
+fi
+
+REPO_URL="${REPO_URL:-}"
+while [[ -z "${REPO_URL}" ]]; do
+  prompt_var REPO_URL "Git repository URL for VirtualCard (e.g. https://github.com/user/VirtualCard.git)" "$DETECTED_REPO_URL"
+done
 
 prompt_var BASE_DOMAIN "Base domain" "virtualcard.duckdns.org"
 BASE_DOMAIN="$(echo "$BASE_DOMAIN" | tr '[:upper:]' '[:lower:]' | xargs)"
@@ -249,7 +257,7 @@ else
   ENV_MASTER_PASSWORD="${MASTER_PASSWORD}"
 fi
 
-cat > "$ENV_FILE" <<EOF
+cat > "$ENV_FILE" <<__VC_APP_ENV__
 NODE_ENV=production
 PORT=${PORT}
 BASE_DOMAIN=${BASE_DOMAIN}
@@ -261,16 +269,16 @@ MASTER_USERNAME=${MASTER_USERNAME}
 MASTER_PASSWORD=${ENV_MASTER_PASSWORD}
 LOG_LEVEL=info
 DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
-EOF
+__VC_APP_ENV__
 chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
 
 # Separate minimal env file for Caddy so Caddy cannot read app secrets
-cat > /etc/caddy/caddy.env <<EOF
+cat > /etc/caddy/caddy.env <<__VC_CADDY_ENV__
 BASE_DOMAIN=${BASE_DOMAIN}
 ACME_EMAIL=${MASTER_EMAIL}
 DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
-EOF
+__VC_CADDY_ENV__
 chown root:caddy /etc/caddy/caddy.env
 chmod 0640 /etc/caddy/caddy.env
 
@@ -284,7 +292,7 @@ ok "Database migrated and master admin seeded."
 
 # 9. Configure Caddyfile & Systemd Services (LXC-safe, No Container Mount Namespaces)
 log "Writing /etc/caddy/Caddyfile and systemd unit files..."
-cat > /etc/caddy/Caddyfile <<EOF
+cat > /etc/caddy/Caddyfile <<__VC_CADDYFILE__
 {
   email {\$ACME_EMAIL:${MASTER_EMAIL}}
 }
@@ -311,12 +319,12 @@ cat > /etc/caddy/Caddyfile <<EOF
     health_timeout 5s
   }
 }
-EOF
+__VC_CADDYFILE__
 chown root:caddy /etc/caddy/Caddyfile
 chmod 0644 /etc/caddy/Caddyfile
 
 NODE_BIN="$(command -v node)"
-cat > /etc/systemd/system/virtualcard.service <<EOF
+cat > /etc/systemd/system/virtualcard.service <<__VC_APP_UNIT__
 [Unit]
 Description=VirtualCard Multi-Tenant Liquid Glass Server
 After=network.target
@@ -335,9 +343,9 @@ NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
-EOF
+__VC_APP_UNIT__
 
-cat > /etc/systemd/system/caddy.service <<EOF
+cat > /etc/systemd/system/caddy.service <<__VC_CADDY_SVC__
 [Unit]
 Description=Caddy Reverse Proxy (DuckDNS Wildcard DNS-01 TLS)
 After=network-online.target virtualcard.service
@@ -357,7 +365,7 @@ NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
-EOF
+__VC_CADDY_SVC__
 
 systemctl daemon-reload
 systemctl enable virtualcard
