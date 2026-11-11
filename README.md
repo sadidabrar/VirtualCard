@@ -75,25 +75,22 @@ When running locally without wildcard DNS:
 
 ## Native Container / VPS Deployment (Debian & Ubuntu LXC, No Docker)
 
-For fresh **Debian 12+ or Ubuntu 22.04/24.04 containers (Proxmox LXC or VPS)**, use [scripts/install-ubuntu-debian.sh](scripts/install-ubuntu-debian.sh) to systematically install Node.js 22 LTS, build tools, custom Caddy (`github.com/caddy-dns/duckdns`), systemd units, SQLite WAL migrations, and the master admin account:
+For fresh **Debian 12/13 or Ubuntu 22.04/24.04 containers (Proxmox LXC or VPS)** running behind an external reverse proxy such as **Nginx Proxy Manager**, use [scripts/install-ubuntu-debian.sh](scripts/install-ubuntu-debian.sh) to install Node.js 22 LTS, build tools, Drizzle SQLite migrations/seed, and `virtualcard.service` listening on port `3000`:
 
 1. Ensure this repository is pushed to a Git remote accessible from the container.
-2. Run as `root` inside the container (works cleanly even in Proxmox/serial web consoles with small paste buffers, and for private repos):
+2. Run as `root` inside the container:
    ```bash
-   apt-get update && apt-get install -y git && git clone https://github.com/<you>/VirtualCard.git /opt/virtualcard && bash /opt/virtualcard/scripts/install-ubuntu-debian.sh
+   apt-get update && apt-get install -y git && git clone -b master https://github.com/sadidabrar/VirtualCard.git /opt/virtualcard && bash /opt/virtualcard/scripts/install-ubuntu-debian.sh
    ```
-   Or fetch only the installer directly:
+   *(Pass `WITH_CADDY=true` if you do not have an external reverse proxy and want local Caddy + DuckDNS DNS-01 TLS installed inside the same container.)*
+3. Point **Nginx Proxy Manager** at `http://<container-ip>:3000` for domains `<base-domain>` and `*.<base-domain>` with HTTPS/SSL enabled. VirtualCard configures `app.set('trust proxy', 1)` so `Host`, `X-Forwarded-Host`, and `X-Forwarded-Proto` work automatically.
+4. Inspect service, logs, and readiness:
    ```bash
-   REPO_URL="https://github.com/<you>/VirtualCard.git" \
-     bash <(curl -fsSL https://raw.githubusercontent.com/<you>/VirtualCard/master/scripts/install-ubuntu-debian.sh)
-   ```
-3. Inspect services, logs, and readiness:
-   ```bash
-   systemctl status virtualcard caddy
-   journalctl -u virtualcard -u caddy -f
+   systemctl status virtualcard
+   journalctl -u virtualcard -f
    curl -f http://127.0.0.1:3000/readyz
    ```
-4. Persistent state lives under `/opt/virtualcard/data/db/virtualcard.db` and `/opt/virtualcard/data/uploads`, with TLS certificates stored in `/var/lib/caddy`.
+5. Persistent state lives under `/opt/virtualcard/data/db/virtualcard.db` and `/opt/virtualcard/data/uploads`.
 
 ---
 

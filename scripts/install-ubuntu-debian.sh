@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # VirtualCard — Fresh Debian / Ubuntu Container (LXC / VPS) Native Installer
-# Sets up: Node.js 22 LTS, build tools, Custom Caddy (DuckDNS DNS-01 TLS),
-#          Git clone + build + Drizzle SQLite migrate & seed + systemd services.
-# Usage:
-#   REPO_URL="https://github.com/<you>/VirtualCard.git" bash install-ubuntu-debian.sh
-#   OR simply run interactively and follow the prompts.
+# Sets up: Node.js 22 LTS, build tools, Git clone + build, Drizzle SQLite
+#          migrate & seed, and systemd virtualcard.service on 0.0.0.0:PORT
+#          (ready for Nginx Proxy Manager / external reverse proxy).
+# Optional: Pass WITH_CADDY=true to also install native Caddy DuckDNS TLS.
 # ==============================================================================
 set -euo pipefail
 
@@ -80,6 +79,7 @@ prompt_var() {
 BRANCH="${BRANCH:-master}"
 APP_DIR="${APP_DIR:-/opt/virtualcard}"
 APP_USER="${APP_USER:-virtualcard}"
+WITH_CADDY="${WITH_CADDY:-false}"
 
 SCRIPT_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd || true)"
 DETECTED_REPO_URL=""
@@ -97,13 +97,18 @@ done
 prompt_var BASE_DOMAIN "Base domain" "virtualcard.duckdns.org"
 BASE_DOMAIN="$(echo "$BASE_DOMAIN" | tr '[:upper:]' '[:lower:]' | xargs)"
 
+prompt_var PORT "HTTP listen port" "3000"
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || ((PORT < 1 || PORT > 65535)); then
+  fail "PORT must be an integer between 1 and 65535."
+fi
+
 prompt_var MASTER_USERNAME "Master admin username" "master"
 MASTER_USERNAME="$(echo "$MASTER_USERNAME" | tr '[:upper:]' '[:lower:]' | xargs)"
 if [[ ! "$MASTER_USERNAME" =~ ^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$ ]]; then
   fail "MASTER_USERNAME must be 3-30 lowercase alphanumeric/hyphen characters."
 fi
 
-prompt_var MASTER_EMAIL "Master admin email (also used for Let's Encrypt ACME)" "admin@${BASE_DOMAIN}"
+prompt_var MASTER_EMAIL "Master admin email" "admin@${BASE_DOMAIN}"
 MASTER_EMAIL="$(echo "$MASTER_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)"
 
 MASTER_PASSWORD="${MASTER_PASSWORD:-}"
@@ -119,16 +124,21 @@ if [[ ${#MASTER_PASSWORD} -lt 12 ]]; then
   fail "MASTER_PASSWORD must be at least 12 characters in production."
 fi
 
-prompt_var DUCKDNS_TOKEN "DuckDNS API token (needed for wildcard TLS DNS-01)"
-if [[ -z "$DUCKDNS_TOKEN" ]]; then
-  warn "DUCKDNS_TOKEN is empty — Caddy TLS wildcard issuance will fail until added to /etc/caddy/caddy.env."
+DUCKDNS_TOKEN="${DUCKDNS_TOKEN:-}"
+if [[ "$WITH_CADDY" == "true" ]]; then
+  prompt_var DUCKDNS_TOKEN "DuckDNS API token (needed for wildcard TLS DNS-01)"
+  if [[ -z "$DUCKDNS_TOKEN" ]]; then
+    warn "DUCKDNS_TOKEN is empty — Caddy TLS wildcard issuance will fail until added to /etc/caddy/caddy.env."
+  fi
 fi
 
-PORT="${PORT:-3000}"
-
-# Port conflict warning (if something outside virtualcard/caddy owns 80/443/3000)
+# Port conflict warning (if something outside virtualcard/caddy owns target port)
 if command -v ss >/dev/null 2>&1; then
-  for check_port in 80 443 "$PORT"; do
+  CHECK_PORTS=("$PORT")
+  if [[ "$WITH_CADDY" == "true" ]]; then
+    CHECK_PORTS=(80 443 "$PORT")
+  fi
+  for check_port in "${CHECK_PORTS[@]}"; do
     if ss -tulpn 2>/dev/null | grep -qE ":${check_port}\b"; then
       if ! systemctl is-active --quiet virtualcard && ! systemctl is-active --quiet caddy; then
         warn "Port ${check_port} appears to already be in use on this container."
@@ -174,47 +184,51 @@ if [[ "$NEED_NODE" == "true" ]]; then
   ok "Installed Node.js $(node -v) and npm $(npm -v)."
 fi
 
-# 5. Install Custom Caddy Binary with DuckDNS DNS-01 Plugin (No Docker)
-ARCH="$(dpkg --print-architecture)"
-case "$ARCH" in
-  amd64|arm64) ;;
-  *) fail "Unsupported architecture '${ARCH}' for prebuilt Caddy download." ;;
-esac
+# 5. Optional Custom Caddy Binary (only when WITH_CADDY=true)
+if [[ "$WITH_CADDY" == "true" ]]; then
+  ARCH="$(dpkg --print-architecture)"
+  case "$ARCH" in
+    amd64|arm64) ;;
+    *) fail "Unsupported architecture '${ARCH}' for prebuilt Caddy download." ;;
+  esac
 
-NEED_CADDY=true
-if [[ -x /usr/local/bin/caddy ]]; then
-  if /usr/local/bin/caddy list-modules 2>/dev/null | grep -q '^dns\.providers\.duckdns$'; then
-    NEED_CADDY=false
-    ok "Custom Caddy with dns.providers.duckdns already installed."
+  NEED_CADDY=true
+  if [[ -x /usr/local/bin/caddy ]]; then
+    if /usr/local/bin/caddy list-modules 2>/dev/null | grep -q '^dns\.providers\.duckdns$'; then
+      NEED_CADDY=false
+      ok "Custom Caddy with dns.providers.duckdns already installed."
+    fi
   fi
-fi
 
-if [[ "$NEED_CADDY" == "true" ]]; then
-  log "Downloading official custom Caddy binary with github.com/caddy-dns/duckdns (${ARCH})..."
-  TMP_CADDY="/tmp/caddy.custom.$$"
-  if curl -fsSL --retry 3 "https://caddyserver.com/api/download?os=linux&arch=${ARCH}&p=github.com/caddy-dns/duckdns" -o "$TMP_CADDY" && chmod 0755 "$TMP_CADDY" && "$TMP_CADDY" list-modules 2>/dev/null | grep -q '^dns\.providers\.duckdns$'; then
-    mv "$TMP_CADDY" /usr/local/bin/caddy
-    ok "Installed /usr/local/bin/caddy with DuckDNS DNS-01 plugin."
-  else
-    rm -f "$TMP_CADDY"
-    warn "Caddy download API failed; falling back to building with Go + xcaddy..."
-    apt-get install -y golang-go
-    export GOPATH="/tmp/gopath.$$"
-    export PATH="${GOPATH}/bin:${PATH}"
-    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
-    "${GOPATH}/bin/xcaddy" build --with github.com/caddy-dns/duckdns --output /usr/local/bin/caddy
-    chmod 0755 /usr/local/bin/caddy
-    rm -rf "$GOPATH"
-    ok "Built /usr/local/bin/caddy via xcaddy."
+  if [[ "$NEED_CADDY" == "true" ]]; then
+    log "Downloading official custom Caddy binary with github.com/caddy-dns/duckdns (${ARCH})..."
+    TMP_CADDY="/tmp/caddy.custom.$$"
+    if curl -fsSL --retry 3 "https://caddyserver.com/api/download?os=linux&arch=${ARCH}&p=github.com/caddy-dns/duckdns" -o "$TMP_CADDY" && chmod 0755 "$TMP_CADDY" && "$TMP_CADDY" list-modules 2>/dev/null | grep -q '^dns\.providers\.duckdns$'; then
+      mv "$TMP_CADDY" /usr/local/bin/caddy
+      ok "Installed /usr/local/bin/caddy with DuckDNS DNS-01 plugin."
+    else
+      rm -f "$TMP_CADDY"
+      warn "Caddy download API failed; falling back to building with Go + xcaddy..."
+      apt-get install -y golang-go
+      export GOPATH="/tmp/gopath.$$"
+      export PATH="${GOPATH}/bin:${PATH}"
+      go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+      "${GOPATH}/bin/xcaddy" build --with github.com/caddy-dns/duckdns --output /usr/local/bin/caddy
+      chmod 0755 /usr/local/bin/caddy
+      rm -rf "$GOPATH"
+      ok "Built /usr/local/bin/caddy via xcaddy."
+    fi
   fi
-fi
 
-if ! id -u caddy >/dev/null 2>&1; then
-  groupadd --system caddy || true
-  useradd --system --gid caddy --create-home --home-dir /var/lib/caddy --shell /usr/sbin/nologin caddy
+  if ! id -u caddy >/dev/null 2>&1; then
+    groupadd --system caddy || true
+    useradd --system --gid caddy --create-home --home-dir /var/lib/caddy --shell /usr/sbin/nologin caddy
+  fi
+  mkdir -p /etc/caddy /var/lib/caddy
+  chown -R caddy:caddy /var/lib/caddy
+else
+  log "Skipping Caddy installation (external reverse proxy / Nginx Proxy Manager mode)."
 fi
-mkdir -p /etc/caddy /var/lib/caddy
-chown -R caddy:caddy /var/lib/caddy
 
 # 6. Create Service User & Clone / Update Repository
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
@@ -268,19 +282,19 @@ MASTER_EMAIL=${MASTER_EMAIL}
 MASTER_USERNAME=${MASTER_USERNAME}
 MASTER_PASSWORD=${ENV_MASTER_PASSWORD}
 LOG_LEVEL=info
-DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
 __VC_APP_ENV__
 chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
 
-# Separate minimal env file for Caddy so Caddy cannot read app secrets
-cat > /etc/caddy/caddy.env <<__VC_CADDY_ENV__
+if [[ "$WITH_CADDY" == "true" ]]; then
+  cat > /etc/caddy/caddy.env <<__VC_CADDY_ENV__
 BASE_DOMAIN=${BASE_DOMAIN}
 ACME_EMAIL=${MASTER_EMAIL}
 DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
 __VC_CADDY_ENV__
-chown root:caddy /etc/caddy/caddy.env
-chmod 0640 /etc/caddy/caddy.env
+  chown root:caddy /etc/caddy/caddy.env
+  chmod 0640 /etc/caddy/caddy.env
+fi
 
 # 8. Install Dependencies, Compile TypeScript, Migrate & Seed SQLite
 log "Installing npm dependencies, building dist/, and pruning devDependencies..."
@@ -290,9 +304,37 @@ log "Running Drizzle migrations and seeding master admin..."
 runuser -u "$APP_USER" -- env HOME="$APP_DIR" bash -c "cd '${APP_DIR}' && node dist/db/migrate.js && node dist/db/seed.js"
 ok "Database migrated and master admin seeded."
 
-# 9. Configure Caddyfile & Systemd Services (LXC-safe, No Container Mount Namespaces)
-log "Writing /etc/caddy/Caddyfile and systemd unit files..."
-cat > /etc/caddy/Caddyfile <<__VC_CADDYFILE__
+# 9. Configure Systemd Service (LXC-safe, No Container Mount Namespaces)
+log "Writing virtualcard systemd service..."
+NODE_BIN="$(command -v node)"
+cat > /etc/systemd/system/virtualcard.service <<__VC_APP_UNIT__
+[Unit]
+Description=VirtualCard Multi-Tenant Liquid Glass Server
+After=network.target
+
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_USER}
+WorkingDirectory=${APP_DIR}
+EnvironmentFile=${APP_DIR}/.env
+ExecStart=${NODE_BIN} ${APP_DIR}/dist/server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+__VC_APP_UNIT__
+
+systemctl daemon-reload
+systemctl enable virtualcard
+systemctl restart virtualcard
+
+if [[ "$WITH_CADDY" == "true" ]]; then
+  log "Writing /etc/caddy/Caddyfile and caddy.service..."
+  cat > /etc/caddy/Caddyfile <<__VC_CADDYFILE__
 {
   email {\$ACME_EMAIL:${MASTER_EMAIL}}
 }
@@ -320,32 +362,10 @@ cat > /etc/caddy/Caddyfile <<__VC_CADDYFILE__
   }
 }
 __VC_CADDYFILE__
-chown root:caddy /etc/caddy/Caddyfile
-chmod 0644 /etc/caddy/Caddyfile
+  chown root:caddy /etc/caddy/Caddyfile
+  chmod 0644 /etc/caddy/Caddyfile
 
-NODE_BIN="$(command -v node)"
-cat > /etc/systemd/system/virtualcard.service <<__VC_APP_UNIT__
-[Unit]
-Description=VirtualCard Multi-Tenant Liquid Glass Server
-After=network.target
-
-[Service]
-Type=simple
-User=${APP_USER}
-Group=${APP_USER}
-WorkingDirectory=${APP_DIR}
-EnvironmentFile=${APP_DIR}/.env
-ExecStart=${NODE_BIN} ${APP_DIR}/dist/server.js
-Restart=on-failure
-RestartSec=3
-TimeoutStopSec=15
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-__VC_APP_UNIT__
-
-cat > /etc/systemd/system/caddy.service <<__VC_CADDY_SVC__
+  cat > /etc/systemd/system/caddy.service <<__VC_CADDY_SVC__
 [Unit]
 Description=Caddy Reverse Proxy (DuckDNS Wildcard DNS-01 TLS)
 After=network-online.target virtualcard.service
@@ -367,16 +387,14 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 __VC_CADDY_SVC__
 
-systemctl daemon-reload
-systemctl enable virtualcard
-systemctl restart virtualcard
-
-if [[ -n "$DUCKDNS_TOKEN" ]]; then
-  systemctl enable caddy
-  systemctl restart caddy
-else
-  warn "DUCKDNS_TOKEN is empty — Caddy was configured but not started."
-  warn "Add DUCKDNS_TOKEN to /etc/caddy/caddy.env, then run: systemctl enable --now caddy"
+  systemctl daemon-reload
+  if [[ -n "$DUCKDNS_TOKEN" ]]; then
+    systemctl enable caddy
+    systemctl restart caddy
+  else
+    warn "DUCKDNS_TOKEN is empty — Caddy was configured but not started."
+    warn "Add DUCKDNS_TOKEN to /etc/caddy/caddy.env, then run: systemctl enable --now caddy"
+  fi
 fi
 
 # 10. Post-Install Readiness Verification
@@ -395,12 +413,22 @@ if [[ "$READY_OK" != "true" ]]; then
   fail "VirtualCard failed readiness check on port ${PORT}."
 fi
 
+CONTAINER_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+CONTAINER_IP="${CONTAINER_IP:-127.0.0.1}"
+
 echo ""
 ok "VirtualCard installation completed successfully!"
 echo "======================================================================"
-echo "  Public URL:       https://${BASE_DOMAIN}"
-echo "  Subdomain URL:    https://<username>.${BASE_DOMAIN}"
-echo "  Master Panel:     https://${BASE_DOMAIN}/master"
+echo "  Local App URL:    http://${CONTAINER_IP}:${PORT}"
+echo "  Readiness URL:    http://${CONTAINER_IP}:${PORT}/readyz"
+if [[ "$WITH_CADDY" == "true" ]]; then
+  echo "  Public URL:       https://${BASE_DOMAIN}"
+  echo "  Subdomain URL:    https://<username>.${BASE_DOMAIN}"
+  echo "  Master Panel:     https://${BASE_DOMAIN}/master"
+else
+  echo "  Proxy Upstream:   http://${CONTAINER_IP}:${PORT}  (point Nginx Proxy Manager here)"
+  echo "  Proxy Domains:    ${BASE_DOMAIN}, *.${BASE_DOMAIN}"
+fi
 echo "  Master Username:  ${MASTER_USERNAME}"
 if [[ -n "$GENERATED_PASS" ]]; then
   echo "  Master Password:  ${GENERATED_PASS}  (save this now!)"
@@ -409,6 +437,11 @@ else
 fi
 echo "  App Directory:    ${APP_DIR}"
 echo "  SQLite Database:  ${APP_DIR}/data/db/virtualcard.db"
-echo "  Service Status:   systemctl status virtualcard caddy"
-echo "  Live Logs:        journalctl -u virtualcard -u caddy -f"
+if [[ "$WITH_CADDY" == "true" ]]; then
+  echo "  Service Status:   systemctl status virtualcard caddy"
+  echo "  Live Logs:        journalctl -u virtualcard -u caddy -f"
+else
+  echo "  Service Status:   systemctl status virtualcard"
+  echo "  Live Logs:        journalctl -u virtualcard -f"
+fi
 echo "======================================================================"
