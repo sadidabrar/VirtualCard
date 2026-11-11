@@ -73,6 +73,27 @@ When running locally without wildcard DNS:
 
 ---
 
+## Native Container / VPS Deployment (Debian & Ubuntu LXC, No Docker)
+
+For fresh **Debian 12+ or Ubuntu 22.04/24.04 containers (Proxmox LXC or VPS)**, use [scripts/install-ubuntu-debian.sh](scripts/install-ubuntu-debian.sh) to systematically install Node.js 22 LTS, build tools, custom Caddy (`github.com/caddy-dns/duckdns`), systemd units, SQLite WAL migrations, and the master admin account:
+
+1. Ensure this repository is pushed to a Git remote accessible from the container.
+2. Run as `root` inside the container:
+   ```bash
+   REPO_URL="https://github.com/<you>/VirtualCard.git" \
+     bash <(curl -fsSL https://raw.githubusercontent.com/<you>/VirtualCard/master/scripts/install-ubuntu-debian.sh)
+   ```
+   Or save locally and run interactively (`chmod +x install-ubuntu-debian.sh && bash install-ubuntu-debian.sh`) to be prompted for `REPO_URL`, domain, master credentials, and `DUCKDNS_TOKEN`.
+3. Inspect services, logs, and readiness:
+   ```bash
+   systemctl status virtualcard caddy
+   journalctl -u virtualcard -u caddy -f
+   curl -f http://127.0.0.1:3000/readyz
+   ```
+4. Persistent state lives under `/opt/virtualcard/data/db/virtualcard.db` and `/opt/virtualcard/data/uploads`, with TLS certificates stored in `/var/lib/caddy`.
+
+---
+
 ## Production Deployment (Docker + Custom Caddy DNS-01 TLS)
 
 ### 1. DuckDNS Wildcard DNS Setup
