@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Admin Panel — VirtualCard</title>
+  <link rel="stylesheet" href="/css/glass.css">
+</head>
+<body>
+  <%- include('partials/bg') %>
+  <%- include('partials/nav') %>
+
+  <main class="page-container">
+    <header class="editor-header-bar glass-enter delay-1">
+      <div>
+        <div class="glass-badge" style="margin-bottom: 0.5rem;">
+          <span class="glass-badge-dot"></span>
+          <span>Master Administrator Control</span>
+        </div>
+        <h1 style="font-size: clamp(1.65rem, 3.2vw, 2.3rem); margin-bottom: 0.25rem;">Platform Directory &amp; Moderation</h1>
+        <p style="font-size: 0.92rem;">Inspect every tenant subdomain, edit any card, manage account access, or export data.</p>
+      </div>
+
+      <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+        <a href="/master/export.csv" class="glass-pill glass-btn-secondary" download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </a>
+        <a href="/master/export.json" class="glass-pill glass-btn-secondary" download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Export JSON
+        </a>
+      </div>
+    </header>
+
+    <% if (toastMessage) { %>
+      <div class="glass-alert glass-alert-success" role="status">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><%= toastMessage %></div>
+      </div>
+    <% } %>
+
+    <!-- KPI Glass Tiles -->
+    <section class="master-kpi-grid glass-enter delay-2" aria-label="Platform Metrics">
+      <div class="glass-panel master-kpi-card">
+        <span class="master-kpi-label">Total Accounts</span>
+        <span class="master-kpi-value"><%= metrics.totalUsers %></span>
+        <span class="master-kpi-sub">Registered tenant &amp; admin users</span>
+      </div>
+
+      <div class="glass-panel master-kpi-card">
+        <span class="master-kpi-label">Active Users</span>
+        <span class="master-kpi-value" style="color: #34d399;"><%= metrics.activeUsers %></span>
+        <span class="master-kpi-sub"><%= metrics.suspendedUsers %> suspended</span>
+      </div>
+
+      <div class="glass-panel master-kpi-card">
+        <span class="master-kpi-label">Published Cards</span>
+        <span class="master-kpi-value" style="color: var(--accent);"><%= metrics.publishedCards %></span>
+        <span class="master-kpi-sub">Live &amp; publicly scannable</span>
+      </div>
+
+      <div class="glass-panel master-kpi-card">
+        <span class="master-kpi-label">Signups (7 Days)</span>
+        <span class="master-kpi-value"><%= metrics.recentSignups7d %></span>
+        <span class="master-kpi-sub">Recent tenant registrations</span>
+      </div>
+    </section>
+
+    <!-- Search & Filter Toolbar -->
+    <section class="glass-panel glass-enter delay-3" style="margin-bottom: 1.5rem; padding: 1.15rem 1.35rem;" aria-label="Search and Filter">
+      <div class="master-toolbar" style="margin-bottom: 0;">
+        <form method="GET" action="/master" class="master-search-form">
+          <input type="hidden" name="status" value="<%= filters.status %>">
+          <input
+            class="glass-input"
+            type="search"
+            name="q"
+            value="<%= filters.q %>"
+            placeholder="Search username, email, full name, or company..."
+            aria-label="Search accounts"
+            style="flex: 1; min-width: 210px; padding: 0.62rem 0.95rem;"
+          >
+          <button type="submit" class="glass-pill glass-btn-primary" style="padding: 0.58rem 1.1rem;">Search</button>
+          <% if (filters.q || filters.status !== 'all') { %>
+            <a href="/master" class="glass-pill glass-btn-secondary" style="padding: 0.58rem 0.95rem;">Reset</a>
+          <% } %>
+        </form>
+
+        <div class="master-filter-pills" role="group" aria-label="Filter by Status">
+          <a
+            href="/master?status=all&amp;q=<%= encodeURIComponent(filters.q) %>"
+            class="glass-pill glass-btn-secondary master-filter-pill <%= filters.status === 'all' ? 'is-active' : '' %>"
+          >All</a>
+          <a
+            href="/master?status=active&amp;q=<%= encodeURIComponent(filters.q) %>"
+            class="glass-pill glass-btn-secondary master-filter-pill <%= filters.status === 'active' ? 'is-active' : '' %>"
+          >Active</a>
+          <a
+            href="/master?status=suspended&amp;q=<%= encodeURIComponent(filters.q) %>"
+            class="glass-pill glass-btn-secondary master-filter-pill <%= filters.status === 'suspended' ? 'is-active' : '' %>"
+          >Suspended</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- User Directory Table -->
+    <section class="glass-panel master-table-wrap glass-enter delay-4" aria-label="User Directory">
+      <% if (items.length === 0) { %>
+        <div style="padding: 3rem 1.5rem; text-align: center;">
+          <h2 style="font-size: 1.15rem; margin-bottom: 0.4rem;">No matching accounts found</h2>
+          <p style="font-size: 0.9rem;">Try clearing your search query or switching the status filter.</p>
+        </div>
+      <% } else { %>
+        <table class="master-table">
+          <thead>
+            <tr>
+              <th>User &amp; Card</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Card</th>
+              <th>Status</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(function(item) { %>
+              <tr>
+                <td>
+                  <div class="master-user-cell">
+                    <img
+                      class="master-mini-avatar"
+                      src="<%= (item.card && item.card.avatar_url) || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23ffffff'/%3E%3Cpath d='M25 80c0-14 11-24 25-24s25 10 25 24' fill='%23ffffff'/%3E%3C/svg%3E" %>"
+                      alt="<%= item.user.username %> avatar"
+                    >
+                    <div>
+                      <div style="font-weight: 700; color: var(--text-main);">
+                        <%= (item.card && item.card.full_name) || item.user.username %>
+                      </div>
+                      <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <a href="<%= item.publicCardHref %>" target="_blank" rel="noopener noreferrer">@<%= item.user.username %></a>
+                        <% if (item.card && item.card.company) { %>
+                          · <%= item.card.company %>
+                        <% } %>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <td style="color: var(--text-muted); font-size: 0.84rem;"><%= item.user.email %></td>
+
+                <td>
+                  <span class="status-pill <%= item.user.role === 'master' ? 'status-pill-master' : 'status-pill-neutral' %>">
+                    <%= item.user.role %>
+                  </span>
+                </td>
+
+                <td>
+                  <% if (item.card && item.card.is_published) { %>
+                    <span class="status-pill status-pill-active">Published</span>
+                  <% } else { %>
+                    <span class="status-pill status-pill-neutral">Draft</span>
+                  <% } %>
+                </td>
+
+                <td>
+                  <span class="status-pill <%= item.user.status === 'active' ? 'status-pill-active' : 'status-pill-suspended' %>">
+                    <%= item.user.status %>
+                  </span>
+                </td>
+
+                <td style="color: var(--text-dim); font-size: 0.8rem; white-space: nowrap;">
+                  <%= item.user.created_at.slice(0, 10) %>
+                </td>
+
+                <td>
+                  <div class="master-actions-row">
+                    <a
+                      href="/master/users/<%= item.user.id %>"
+                      class="glass-pill glass-btn-secondary master-action-btn"
+                    >Edit</a>
+
+                    <% if (item.user.role !== 'master') { %>
+                      <form method="POST" action="/master/users/<%= item.user.id %>/status" style="display: inline; margin: 0;">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <input type="hidden" name="redirect_to" value="list">
+                        <input type="hidden" name="status" value="<%= item.user.status === 'active' ? 'suspended' : 'active' %>">
+                        <button
+                          type="submit"
+                          class="glass-pill master-action-btn <%= item.user.status === 'active' ? 'glass-btn-danger' : 'glass-btn-secondary' %>"
+                        >
+                          <%= item.user.status === 'active' ? 'Suspend' : 'Reactivate' %>
+                        </button>
+                      </form>
+
+                      <form
+                        method="POST"
+                        action="/master/users/<%= item.user.id %>/delete"
+                        class="master-delete-form"
+                        data-delete-user-id="<%= item.user.id %>"
+                        data-delete-username="<%= item.user.username %>"
+                        style="display: inline; margin: 0;"
+                      >
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button type="submit" class="glass-pill glass-btn-danger master-action-btn">
+                          Delete
+                        </button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </section>
+
+    <!-- Pagination Bar -->
+    <% if (pagination.totalCount > 0) { %>
+      <nav class="glass-panel master-pagination" aria-label="Directory Pagination">
+        <span style="font-size: 0.84rem; color: var(--text-muted);">
+          Showing <strong><%= items.length %></strong> of <strong><%= pagination.totalCount %></strong> accounts
+          (Page <strong><%= pagination.page %></strong> of <strong><%= pagination.totalPages %></strong>)
+        </span>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <% if (pagination.page > 1) { %>
+            <a
+              href="/master?page=<%= pagination.page - 1 %>&amp;limit=<%= pagination.limit %>&amp;status=<%= filters.status %>&amp;q=<%= encodeURIComponent(filters.q) %>"
+              class="glass-pill glass-btn-secondary master-action-btn"
+            >Previous</a>
+          <% } %>
+
+          <% if (pagination.page < pagination.totalPages) { %>
+            <a
+              href="/master?page=<%= pagination.page + 1 %>&amp;limit=<%= pagination.limit %>&amp;status=<%= filters.status %>&amp;q=<%= encodeURIComponent(filters.q) %>"
+              class="glass-pill glass-btn-secondary master-action-btn"
+            >Next</a>
+          <% } %>
+        </div>
+      </nav>
+    <% } %>
+  </main>
+
+  <!-- Liquid Glass Delete Confirmation Modal -->
+  <dialog class="glass-modal" id="delete-confirm-modal" aria-labelledby="delete-modal-title">
+    <h2 id="delete-modal-title" style="font-size: 1.25rem; margin-bottom: 0.65rem;">Delete User Account?</h2>
+    <p style="font-size: 0.9rem; margin-bottom: 1.35rem; color: var(--text-muted);">
+      This will permanently remove <strong id="delete-modal-username" style="color: var(--text-main);"></strong>,
+      delete their digital business card and avatar, and release their subdomain. This action cannot be undone.
+    </p>
+    <div id="delete-modal-error" class="availability-hint availability-err" style="margin-bottom: 0.85rem;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap;">
+      <button type="button" class="glass-pill glass-btn-secondary" id="delete-modal-cancel">Cancel</button>
+      <button type="button" class="glass-pill glass-btn-danger" id="delete-modal-confirm">Delete Permanently</button>
+    </div>
+  </dialog>
+
+  <div
+    class="glass-toast"
+    id="master-toast"
+    role="status"
+    aria-live="polite"
+    data-toast-message="<%= toastMessage || '' %>"
+    data-csrf-token="<%= csrfToken %>"
+  ><%= toastMessage || '' %></div>
+
+  <script src="/js/master.js" defer></script>
+</body>
+</html>

@@ -5,12 +5,8 @@ import type { CardRepository } from '../repositories/cardRepository.js';
 import { loginBodySchema, signupBodySchema } from '../validators/auth.js';
 import { ACCENT_PRESETS, sanitizeText } from '../lib/sanitize.js';
 import { getCanonicalTenantUrl, getClickableTenantHref } from '../lib/url.js';
+import { wantsJson } from '../lib/http.js';
 import { AppError } from '../types/errors.js';
-
-function wantsJson(req: Request): boolean {
-  const accept = req.headers.accept || '';
-  return accept.includes('application/json') && !accept.includes('text/html');
-}
 
 export class AuthController {
   constructor(

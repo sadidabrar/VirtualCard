@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { UserRepository } from '../repositories/userRepository.js';
 import { AuthError, NotFoundError, TenantMismatchError } from '../types/errors.js';
 import { getRootHref } from '../lib/url.js';
+import { wantsJson } from '../lib/http.js';
 
 export interface AuthMiddlewares {
   attachCurrentUser: RequestHandler;
@@ -82,7 +83,10 @@ export function createAuthMiddleware(
 
   const requireMaster: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
     if (!req.currentUser) {
-      res.redirect('/login');
+      if (wantsJson(req)) {
+        return next(new AuthError('Authentication required.', 401, 'UNAUTHENTICATED'));
+      }
+      res.redirect(getRootHref('/login', req, baseDomain, isProd));
       return;
     }
 

@@ -5,6 +5,19 @@ export type { User, Card };
 
 export type SafeUser = Omit<User, 'password_hash'>;
 
+export interface AdminUserWithCard {
+  user: SafeUser;
+  card: Card | null;
+}
+
+export interface MasterDashboardMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  suspendedUsers: number;
+  publishedCards: number;
+  recentSignups7d: number;
+}
+
 export interface ApiSuccessResponse<T = unknown> {
   ok: true;
   data: T;

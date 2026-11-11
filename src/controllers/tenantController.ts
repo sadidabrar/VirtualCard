@@ -12,12 +12,8 @@ import {
   sanitizeHttpUrl,
 } from '../lib/sanitize.js';
 import { getCanonicalTenantUrl, getClickableTenantHref } from '../lib/url.js';
+import { wantsJson } from '../lib/http.js';
 import { buildVCardString } from '../lib/vcard.js';
-
-function wantsJson(req: Request): boolean {
-  const accept = req.headers.accept || '';
-  return accept.includes('application/json') && !accept.includes('text/html');
-}
 
 export class TenantController {
   constructor(

@@ -193,7 +193,7 @@ describe('VirtualCard Backend Integration Tests', () => {
     expect(okLogin.status).toBe(200);
     expect(okLogin.body.ok).toBe(true);
 
-    // Suspend user and test 403 on tenant subdomain
+    // Suspend user and test 404 on tenant subdomain (per spec: 404 if suspended or unpublished)
     const userRepo = new UserRepository(ctx.db);
     userRepo.updateStatus(1, 'suspended', new Date().toISOString());
 
@@ -201,7 +201,7 @@ describe('VirtualCard Backend Integration Tests', () => {
       .get('/')
       .set('Host', 'master.virtualcard.duckdns.org')
       .set('Accept', 'application/json');
-    expect(suspendedTenant.status).toBe(403);
+    expect(suspendedTenant.status).toBe(404);
     expect(suspendedTenant.body.error.code).toBe('ACCOUNT_SUSPENDED');
 
     // Rate limit test: we already did 1 login, 4 more allowed, 6th triggers 429
@@ -472,5 +472,227 @@ describe('VirtualCard Backend Integration Tests', () => {
       .set('Host', 'alice2026.virtualcard.duckdns.org');
     expect(postLogoutEdit.status).toBe(302);
     expect(postLogoutEdit.headers.location).toContain('/login');
+  });
+
+  it('enforces master-only access and supports search, edit, suspend, password reset, CSV export (formula-safe), and user deletion', async () => {
+    // 1. Unauthenticated /master redirects or 401
+    const unauthMasterHtml = await request(ctx.app).get('/master');
+    expect(unauthMasterHtml.status).toBe(302);
+    expect(unauthMasterHtml.headers.location).toContain('/login');
+
+    const unauthMasterJson = await request(ctx.app)
+      .get('/master')
+      .set('Accept', 'application/json');
+    expect(unauthMasterJson.status).toBe(401);
+    expect(unauthMasterJson.body.error.code).toBe('UNAUTHENTICATED');
+
+    // 2. Sign up an owner user (alice2026) with avatar + formula-prefixed company to test CSV safety
+    const ownerAgent = request.agent(ctx.app);
+    const sPage = await ownerAgent.get('/signup');
+    const sCsrf = extractCsrf(sPage.text);
+
+    const pngBytes = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const signupRes = await ownerAgent
+      .post('/signup')
+      .field('_csrf', sCsrf)
+      .field('username', 'alice2026')
+      .field('email', 'alice2026@example.com')
+      .field('password', 'InitialPass123!')
+      .field('confirm_password', 'InitialPass123!')
+      .field('full_name', 'Alice Owner')
+      .field('company', '=1+1')
+      .attach('avatar', pngBytes, { filename: 'av.png', contentType: 'image/png' });
+    expect(signupRes.status).toBe(302);
+
+    const aliceUser = new UserRepository(ctx.db).findByUsername('alice2026')!;
+    const aliceCardBefore = new CardRepository(ctx.db).findByUserId(aliceUser.id)!;
+
+    // 3. Regular owner is blocked from /master with 403 MASTER_ONLY
+    const ownerBlocked = await ownerAgent.get('/master').set('Accept', 'application/json');
+    expect(ownerBlocked.status).toBe(403);
+    expect(ownerBlocked.body.error.code).toBe('MASTER_ONLY');
+
+    const ownerExportBlocked = await ownerAgent
+      .get('/master/export.csv')
+      .set('Accept', 'application/json');
+    expect(ownerExportBlocked.status).toBe(403);
+
+    // 4. Master logs in on root domain
+    const masterAgent = request.agent(ctx.app);
+    const loginPage = await masterAgent.get('/login');
+    const loginCsrf = extractCsrf(loginPage.text);
+
+    const masterLogin = await masterAgent.post('/login').type('form').send({
+      _csrf: loginCsrf,
+      identifier: ctx.env.MASTER_USERNAME,
+      password: ctx.env.MASTER_PASSWORD,
+    });
+    expect(masterLogin.status).toBe(302);
+
+    // /master is blocked on tenant subdomains (404)
+    const masterOnSubdomain = await masterAgent
+      .get('/master')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(masterOnSubdomain.status).toBe(404);
+
+    // 5. Master dashboard metrics & search filtering
+    const dashRes = await masterAgent.get('/master?q=alice');
+    expect(dashRes.status).toBe(200);
+    expect(dashRes.text).toContain('Platform Directory');
+    expect(dashRes.text).toContain('alice2026');
+    expect(dashRes.text).toContain('Alice Owner');
+
+    const dashJson = await masterAgent
+      .get('/master?q=nonexistent_xyz')
+      .set('Accept', 'application/json');
+    expect(dashJson.status).toBe(200);
+    expect(dashJson.body.ok).toBe(true);
+    expect(dashJson.body.data.metrics.totalUsers).toBe(2);
+    expect(dashJson.body.data.items).toHaveLength(0);
+
+    // 6. Inspect & update target user + card via Master Panel
+    const detailRes = await masterAgent.get(`/master/users/${aliceUser.id}`);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.text).toContain(`Manage @alice2026`);
+    const masterCsrf = extractCsrf(detailRes.text);
+
+    const editUserRes = await masterAgent.post(`/master/users/${aliceUser.id}`).type('form').send({
+      _csrf: masterCsrf,
+      email: 'alice.edited@example.com',
+      role: 'owner',
+      status: 'active',
+      full_name: 'Alice Edited By Master',
+      job_title: 'VP Platform',
+      company: '=1+1',
+      theme: '#a855f7',
+      is_published: 'true',
+      social_github: 'https://github.com/alice2026',
+    });
+    expect(editUserRes.status).toBe(302);
+    expect(editUserRes.headers.location).toBe(`/master/users/${aliceUser.id}?saved=1`);
+
+    const publicAfterEdit = await request(ctx.app)
+      .get('/')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(publicAfterEdit.status).toBe(200);
+    expect(publicAfterEdit.text).toContain('Alice Edited By Master');
+
+    // Prevent master self-demotion / self-suspend
+    const selfSuspend = await masterAgent
+      .post('/master/users/1/status')
+      .set('Accept', 'application/json')
+      .type('form')
+      .send({ _csrf: masterCsrf, status: 'suspended' });
+    expect(selfSuspend.status).toBe(400);
+
+    // 7. Suspend alice2026 -> public card immediately 404s AND her active session invalidates
+    const suspendRes = await masterAgent
+      .post(`/master/users/${aliceUser.id}/status`)
+      .type('form')
+      .send({ _csrf: masterCsrf, status: 'suspended', redirect_to: 'list' });
+    expect(suspendRes.status).toBe(302);
+    expect(suspendRes.headers.location).toBe('/master?status=updated');
+
+    const suspendedCard = await request(ctx.app)
+      .get('/')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(suspendedCard.status).toBe(404);
+    expect(suspendedCard.body.error.code).toBe('ACCOUNT_SUSPENDED');
+
+    const ownerSuspendedEdit = await ownerAgent
+      .get('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(ownerSuspendedEdit.status).toBe(404);
+
+    // Reactivate alice2026 -> card returns 200 again, while owner's old session stayed invalidated
+    const reactivateRes = await masterAgent
+      .post(`/master/users/${aliceUser.id}/status`)
+      .type('form')
+      .send({ _csrf: masterCsrf, status: 'active', redirect_to: 'detail' });
+    expect(reactivateRes.status).toBe(302);
+
+    const ownerEditAfterReactivate = await ownerAgent
+      .get('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(ownerEditAfterReactivate.status).toBe(302);
+    expect(ownerEditAfterReactivate.headers.location).toContain('/login');
+
+    const reactivatedCard = await request(ctx.app)
+      .get('/')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(reactivatedCard.status).toBe(200);
+
+    // 8. Admin resets alice2026 password -> new password works
+    const resetRes = await masterAgent
+      .post(`/master/users/${aliceUser.id}/reset-password`)
+      .type('form')
+      .send({
+        _csrf: masterCsrf,
+        new_password: 'ResetTempPassword99!',
+        confirm_password: 'ResetTempPassword99!',
+      });
+    expect(resetRes.status).toBe(302);
+    expect(resetRes.headers.location).toBe(`/master/users/${aliceUser.id}?pwreset=1`);
+
+    const aliceLoginPage = await ownerAgent.get('/login');
+    const aliceLoginCsrf = extractCsrf(aliceLoginPage.text);
+    const oldPassFail = await ownerAgent.post('/login').type('form').send({
+      _csrf: aliceLoginCsrf,
+      identifier: 'alice2026',
+      password: 'InitialPass123!',
+    });
+    expect(oldPassFail.status).toBe(401);
+
+    const newPassOk = await ownerAgent.post('/login').type('form').send({
+      _csrf: aliceLoginCsrf,
+      identifier: 'alice2026',
+      password: 'ResetTempPassword99!',
+    });
+    expect(newPassOk.status).toBe(302);
+
+    // 9. CSV & JSON exports never leak password_hash and neutralize formula injection
+    const csvRes = await masterAgent.get('/master/export.csv');
+    expect(csvRes.status).toBe(200);
+    expect(csvRes.headers['content-type']).toContain('text/csv');
+    expect(csvRes.text).toContain('alice2026');
+    expect(csvRes.text).toContain("'=1+1");
+    expect(csvRes.text).not.toContain('password_hash');
+
+    const jsonRes = await masterAgent.get('/master/export.json');
+    expect(jsonRes.status).toBe(200);
+    expect(jsonRes.body.ok).toBe(true);
+    expect(jsonRes.body.data.users.length).toBe(2);
+    expect(jsonRes.body.data.users[0].user.password_hash).toBeUndefined();
+
+    // 10. Delete self / master prevented (400), delete owner via HTTP DELETE removes user + avatar
+    const deleteMasterFail = await masterAgent
+      .delete('/master/users/1')
+      .set('Accept', 'application/json')
+      .set('X-CSRF-Token', masterCsrf);
+    expect(deleteMasterFail.status).toBe(400);
+    expect(deleteMasterFail.body.error.code).toBe('SELF_DELETE_FORBIDDEN');
+
+    const deleteOwnerRes = await masterAgent
+      .delete(`/master/users/${aliceUser.id}`)
+      .set('Accept', 'application/json')
+      .set('X-CSRF-Token', masterCsrf);
+    expect(deleteOwnerRes.status).toBe(200);
+    expect(deleteOwnerRes.body).toEqual({
+      ok: true,
+      data: { deletedUsername: 'alice2026' },
+    });
+
+    const deletedAvatarRes = await request(ctx.app).get(aliceCardBefore.avatar_url!);
+    expect(deletedAvatarRes.status).toBe(404);
+
+    const availAgain = await request(ctx.app).get('/api/username-available?u=alice2026');
+    expect(availAgain.status).toBe(200);
+    expect(availAgain.body.data.available).toBe(true);
   });
 });

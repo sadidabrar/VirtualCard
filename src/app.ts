@@ -20,12 +20,14 @@ import { TenantService } from './services/tenantService.js';
 import { QrService } from './services/qrService.js';
 import { HealthService } from './services/healthService.js';
 import { CardService } from './services/cardService.js';
+import { MasterService } from './services/masterService.js';
 
 import { HealthController } from './controllers/healthController.js';
 import { RootController } from './controllers/rootController.js';
 import { AuthController } from './controllers/authController.js';
 import { TenantController } from './controllers/tenantController.js';
 import { MediaController } from './controllers/mediaController.js';
+import { MasterController } from './controllers/masterController.js';
 
 import { createRequestLoggerMiddleware } from './middleware/requestId.js';
 import { createRateLimiters } from './middleware/rateLimit.js';
@@ -39,6 +41,7 @@ import { createRootRouter } from './routes/root.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createTenantRouter } from './routes/tenant.js';
 import { createMediaRouter } from './routes/media.js';
+import { createMasterRouter } from './routes/master.js';
 
 import { NotFoundError } from './types/errors.js';
 
@@ -95,6 +98,7 @@ export function createApp(deps: AppDependencies): Express {
   const qrService = new QrService(env.BASE_DOMAIN);
   const healthService = new HealthService(healthRepo);
   const cardService = new CardService(cardRepo, env.UPLOAD_DIR);
+  const masterService = new MasterService(userRepo, env.BASE_DOMAIN, env.UPLOAD_DIR);
 
   const healthController = new HealthController(healthService);
   const rootController = new RootController(authService, qrService, env.BASE_DOMAIN);
@@ -107,6 +111,7 @@ export function createApp(deps: AppDependencies): Express {
   );
   const tenantController = new TenantController(qrService, cardService, env.BASE_DOMAIN, isProd);
   const mediaController = new MediaController(env.UPLOAD_DIR);
+  const masterController = new MasterController(masterService, qrService, env.BASE_DOMAIN, isProd);
 
   const rateLimiters = createRateLimiters();
   const authMiddleware = createAuthMiddleware(userRepo, env.BASE_DOMAIN, isProd);
@@ -192,7 +197,15 @@ export function createApp(deps: AppDependencies): Express {
     next();
   });
 
-  // 9. Root Domain & Auth Routing
+  // 9. Root Domain, Auth & Master Admin Routing
+  const masterRouter = createMasterRouter(masterController, authMiddleware.requireMaster);
+  app.use('/master', (req: Request, res: Response, next: NextFunction) => {
+    if (req.isTenantRequest) {
+      return next();
+    }
+    return masterRouter(req, res, next);
+  });
+
   app.use('/', createRootRouter(rootController, rateLimiters));
   app.use('/', createAuthRouter(authController, rateLimiters));
 

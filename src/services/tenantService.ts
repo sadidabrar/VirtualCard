@@ -1,7 +1,7 @@
 import type { UserRepository } from '../repositories/userRepository.js';
 import type { CardRepository } from '../repositories/cardRepository.js';
 import type { User, Card } from '../db/schema.js';
-import { AuthError, NotFoundError } from '../types/errors.js';
+import { NotFoundError } from '../types/errors.js';
 
 export interface TenantExtractInput {
   rawHost: string;
@@ -57,9 +57,8 @@ export class TenantService {
     }
 
     if (user.status === 'suspended') {
-      throw new AuthError(
-        'This digital business card has been suspended by the administrator.',
-        403,
+      throw new NotFoundError(
+        'This digital business card is currently unavailable.',
         'ACCOUNT_SUSPENDED'
       );
     }
