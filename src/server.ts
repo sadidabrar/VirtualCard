@@ -1,46 +1,53 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import session from 'express-session';
 import SQLiteStoreInit from 'better-sqlite3-session-store';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import QRCode from 'qrcode';
 import helmet from 'helmet';
 
+import { config, getClickableTenantHref, getRootHref } from './config.js';
 import { sqliteDb } from './db/index.js';
-import { tenantMiddleware } from './middleware/tenant.js';
 import { seedMasterAdmin } from './db/seed.js';
+import { tenantMiddleware } from './middleware/tenant.js';
+import { ensureCsrfToken } from './middleware/csrf.js';
+import { attachCurrentUser } from './middleware/auth.js';
+
+import rootRoutes from './routes/root.js';
+import authRoutes from './routes/auth.js';
+import mediaRoutes from './routes/media.js';
+import tenantRoutes from './routes/tenant.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Auto-seed master admin if needed on boot
-seedMasterAdmin().catch(err => console.error('Auto-seed check error:', err));
+seedMasterAdmin().catch((err) => console.error('Auto-seed check error:', err));
 
 // Trust reverse proxy (X-Forwarded-Host, X-Forwarded-For)
 app.set('trust proxy', 1);
 
-// Security Headers (Helmet) configured for self-hosted assets & tight CSP
+// Strict Security Headers (CSP with self-hosted fonts & zero inline scripts)
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
-        formAction: ["'self'"]
-      }
+        formAction: ["'self'"],
+      },
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 
@@ -48,8 +55,10 @@ app.use(
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Static assets
+// Static assets & controlled media serving (available across root + subdomains)
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/media', mediaRoutes);
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -61,83 +70,72 @@ app.use(
       client: sqliteDb,
       expired: {
         clear: true,
-        intervalMs: 900000 // 15 mins
-      }
+        intervalMs: 900000, // 15 mins
+      },
     }),
     name: 'vc_session',
-    secret: process.env.SESSION_SECRET || 'virtualcard_liquid_glass_super_secure_secret_2026',
+    secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: config.isProd,
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    }
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
   })
 );
 
-// Mount Tenant Resolution Middleware
-app.use(tenantMiddleware);
-
-// --- Tenant Subdomain Handling ---
-app.use((req: Request, res: Response, next) => {
-  if (req.isTenantRequest && req.tenantUser && req.tenantCard) {
-    // If request is on tenant subdomain
-    if (req.path === '/') {
-      return res.render('tenant-card-preview', {
-        user: req.tenantUser,
-        card: req.tenantCard,
-        tenant: req.tenant
-      });
-    }
+// Attach CSRF token + Current User + Navigation helpers
+app.use(ensureCsrfToken);
+app.use(attachCurrentUser);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.locals.rootHomeHref = getRootHref('/', req);
+  res.locals.rootLoginHref = getRootHref('/login', req);
+  res.locals.rootSignupHref = getRootHref('/signup', req);
+  res.locals.rootLogoutHref = getRootHref('/logout', req);
+  if (req.currentUser) {
+    res.locals.myCardHref = getClickableTenantHref(req.currentUser.username, '/', req);
+    res.locals.myEditorHref = getClickableTenantHref(req.currentUser.username, '/edit', req);
+  } else {
+    res.locals.myCardHref = res.locals.rootHomeHref;
+    res.locals.myEditorHref = res.locals.rootLoginHref;
   }
   next();
 });
 
-// --- Root Domain Routes ---
+// Tenant Subdomain Resolution Middleware
+app.use(tenantMiddleware);
 
-// Phase 2 Demo Route (Design System Foundation)
-app.get('/demo', async (req: Request, res: Response) => {
-  try {
-    const sampleTenantUrl = 'https://mahbubkhan.virtualcard.duckdns.org';
-    const qrDataUrl = await QRCode.toDataURL(sampleTenantUrl, {
-      errorCorrectionLevel: 'H',
-      margin: 1,
-      width: 160,
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
-    });
-
-    const demoData = {
-      name: 'Mahbub Khan',
-      role: 'Founder & Principal Architect',
-      company: 'Apex Cloud Systems',
-      tagline: 'Scaling distributed cloud systems with elegant interfaces'
-    };
-
-    res.render('demo', {
-      demoData,
-      qrDataUrl
-    });
-  } catch (err) {
-    console.error('Error rendering demo:', err);
-    res.status(500).send('Internal Server Error');
+// Dispatch Tenant Routes vs Root Domain Routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.isTenantRequest) {
+    return tenantRoutes(req, res, next);
   }
+  next();
 });
 
-// Root landing page route
-app.get('/', (req: Request, res: Response) => {
-  res.redirect('/demo');
+app.use('/', rootRoutes);
+app.use('/', authRoutes);
+
+// Styled Liquid Glass 404 Catch-All
+app.use((_req: Request, res: Response) => {
+  res.status(404).render('tenant-error', {
+    title: 'Page Not Found',
+    badge: '404 • Not Found',
+    heading: 'Page Not Found',
+    message: 'The page you are looking for does not exist or may have moved.',
+    ctaText: 'Back to Home',
+    ctaLink: '/',
+    accent: '#38bdf8',
+  });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`✨ VirtualCard platform active at http://localhost:${PORT}`);
-  console.log(`   - Root / Demo: http://localhost:${PORT}/demo`);
-  console.log(`   - Tenant Override (master): http://localhost:${PORT}/?__tenant=master`);
-  console.log(`   - Unknown Tenant Test: http://localhost:${PORT}/?__tenant=nonexistent`);
+app.listen(config.port, () => {
+  console.log(`✨ VirtualCard platform active at http://localhost:${config.port}`);
+  console.log(`   - Landing Page: http://localhost:${config.port}/`);
+  console.log(`   - Signup Flow:  http://localhost:${config.port}/signup`);
+  console.log(`   - Design Demo:  http://localhost:${config.port}/demo`);
 });
 
 export default app;

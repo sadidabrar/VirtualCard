@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../db/index.js';
 import { users, cards, User, Card } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { getRootHref } from '../config.js';
 
 declare global {
   namespace Express {
@@ -68,7 +69,7 @@ export function tenantMiddleware(req: Request, res: Response, next: NextFunction
         heading: 'Card Does Not Exist',
         message: `The virtual card for subdomain "${tenantSubdomain}" was not found. It may not be registered yet, or was removed.`,
         ctaText: 'Claim this username',
-        ctaLink: `https://${baseDomain}/signup?u=${encodeURIComponent(tenantSubdomain)}`,
+        ctaLink: getRootHref(`/signup?u=${encodeURIComponent(tenantSubdomain)}`, req),
         accent: '#38bdf8'
       });
       return;
@@ -82,7 +83,7 @@ export function tenantMiddleware(req: Request, res: Response, next: NextFunction
         heading: 'Card Temporarily Unavailable',
         message: `This digital business card has been suspended by the administrator.`,
         ctaText: 'Contact Support',
-        ctaLink: `https://${baseDomain}`,
+        ctaLink: getRootHref('/', req),
         accent: '#f43f5e'
       });
       return;

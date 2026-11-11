@@ -1,0 +1,32 @@
+<div class="glass-nav-wrap">
+  <nav class="glass-nav" aria-label="Main Navigation">
+    <a href="/" class="glass-brand">
+      <span class="glass-brand-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect width="14" height="20" x="5" y="2" rx="3" />
+          <path d="M12 18h.01" />
+        </svg>
+      </span>
+      <span>VirtualCard</span>
+    </a>
+
+    <div class="glass-nav-links">
+      <a href="/demo" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Design Demo</a>
+
+      <% if (currentUser) { %>
+        <% if (currentUser.role === 'master') { %>
+          <a href="/master" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Master Panel</a>
+        <% } %>
+        <a href="<%= myCardHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">My Card</a>
+        <a href="<%= myEditorHref %>" class="glass-pill glass-btn-primary" style="padding: 0.45rem 1rem; font-size: 0.85rem;">Edit Card</a>
+        <form method="POST" action="/logout" style="display: inline; margin: 0;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Log Out</button>
+        </form>
+      <% } else { %>
+        <a href="/login" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 1rem; font-size: 0.85rem;">Log In</a>
+        <a href="/signup" class="glass-pill glass-btn-primary" style="padding: 0.45rem 1.15rem; font-size: 0.85rem;">Get Started</a>
+      <% } %>
+    </div>
+  </nav>
+</div>

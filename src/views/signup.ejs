@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Your Card — VirtualCard</title>
+  <link rel="stylesheet" href="/css/glass.css">
+  <style>
+    .js-enabled .signup-step.is-collapsed {
+      display: none;
+    }
+
+    .signup-step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .username-prefix-box {
+      display: flex;
+      align-items: center;
+      background: rgba(12, 14, 20, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .username-prefix-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .username-prefix-box input {
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+    }
+
+    .username-prefix-box input:focus {
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .username-domain-tag {
+      padding: 0 0.9rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .js-only-nav {
+      display: none;
+    }
+
+    .js-enabled .js-only-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+
+    .js-enabled .nojs-submit-divider {
+      display: none;
+    }
+  </style>
+  <script src="/js/head.js"></script>
+</head>
+<body>
+  <%- include('partials/bg') %>
+  <%- include('partials/nav') %>
+
+  <main class="page-container">
+    <div style="margin-bottom: 2rem;" class="glass-enter delay-1">
+      <h1 style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); margin-bottom: 0.4rem;">Claim Your Virtual Card</h1>
+      <p style="font-size: 0.95rem;">Set up your account, customize your Liquid Glass card, and go live immediately.</p>
+    </div>
+
+    <div class="two-col-editor">
+      <!-- Left Column: Multi-step Signup Form -->
+      <section class="glass-panel glass-enter delay-2" aria-label="Signup Form">
+        <!-- Glass Progress Dots -->
+        <div class="step-dots" role="tablist" aria-label="Signup Steps">
+          <button type="button" class="step-dot is-active" id="dot-step-1" data-goto-step="1">
+            <span>1</span> Account
+          </button>
+          <button type="button" class="step-dot" id="dot-step-2" data-goto-step="2">
+            <span>2</span> Card Details
+          </button>
+          <span class="step-dot" style="opacity: 0.65;">
+            <span>3</span> Launch QR
+          </span>
+        </div>
+
+        <% if (errors && errors.length > 0) { %>
+          <div class="glass-alert glass-alert-error" role="alert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>
+              <% errors.forEach(function(err) { %>
+                <div><%= err %></div>
+              <% }); %>
+            </div>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/signup" enctype="multipart/form-data" id="signup-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <!-- STEP 1: Account -->
+          <div class="signup-step" id="step-1-panel">
+            <div class="signup-step-header">
+              <h2 style="font-size: 1.2rem;">Step 1 — Account &amp; Subdomain</h2>
+            </div>
+
+            <div class="glass-form-group">
+              <label class="glass-label" for="signup-username">
+                Subdomain Username
+                <span class="glass-label-sub">(3–30 chars, lowercase letters, numbers, hyphens)</span>
+              </label>
+              <div class="username-prefix-box">
+                <input
+                  class="glass-input"
+                  id="signup-username"
+                  name="username"
+                  type="text"
+                  value="<%= formData.username || '' %>"
+                  placeholder="mahbubkhan"
+                  required
+                  minlength="3"
+                  maxlength="30"
+                  pattern="[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])?"
+                  autocomplete="username"
+                  autocapitalize="none"
+                >
+                <span class="username-domain-tag">.<%= baseDomain %></span>
+              </div>
+              <div class="availability-hint" id="username-availability" aria-live="polite"></div>
+            </div>
+
+            <div class="glass-form-group">
+              <label class="glass-label" for="signup-email">Account Email</label>
+              <input
+                class="glass-input"
+                id="signup-email"
+                name="email"
+                type="email"
+                value="<%= formData.email || '' %>"
+                placeholder="you@example.com"
+                required
+                autocomplete="email"
+              >
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="signup-password">Password <span class="glass-label-sub">(min 8 chars)</span></label>
+                <input
+                  class="glass-input"
+                  id="signup-password"
+                  name="password"
+                  type="password"
+                  placeholder="••••••••••••"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="signup-confirm-password">Confirm Password</label>
+                <input
+                  class="glass-input"
+                  id="signup-confirm-password"
+                  name="confirm_password"
+                  type="password"
+                  placeholder="••••••••••••"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                >
+              </div>
+            </div>
+
+            <div class="js-only-nav">
+              <span></span>
+              <button type="button" class="glass-pill glass-btn-primary" id="btn-next-step">
+                Continue to Card Details
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 2: Card Data -->
+          <div class="signup-step is-collapsed" id="step-2-panel">
+            <div class="signup-step-header">
+              <h2 style="font-size: 1.2rem;">Step 2 — Card Details &amp; Design</h2>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-full-name">Full Name *</label>
+                <input
+                  class="glass-input"
+                  id="card-full-name"
+                  name="full_name"
+                  type="text"
+                  value="<%= formData.full_name || '' %>"
+                  placeholder="Mahbub Khan"
+                  required
+                  data-preview="name"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-job-title">Job Title</label>
+                <input
+                  class="glass-input"
+                  id="card-job-title"
+                  name="job_title"
+                  type="text"
+                  value="<%= formData.job_title || '' %>"
+                  placeholder="Founder &amp; Architect"
+                  data-preview="role"
+                >
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-company">Company</label>
+                <input
+                  class="glass-input"
+                  id="card-company"
+                  name="company"
+                  type="text"
+                  value="<%= formData.company || '' %>"
+                  placeholder="Apex Cloud Systems"
+                  data-preview="company"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-avatar">Avatar Image <span class="glass-label-sub">(max 5 MB)</span></label>
+                <input
+                  class="glass-input"
+                  id="card-avatar"
+                  name="avatar"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style="padding: 0.55rem 0.75rem;"
+                >
+              </div>
+            </div>
+
+            <div class="glass-form-group">
+              <label class="glass-label" for="card-tagline">Tagline / Bio</label>
+              <input
+                class="glass-input"
+                id="card-tagline"
+                name="tagline"
+                type="text"
+                value="<%= formData.tagline || '' %>"
+                placeholder="Building resilient cloud infrastructure &amp; crisp interfaces"
+                data-preview="tagline"
+              >
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-phone">Phone</label>
+                <input
+                  class="glass-input"
+                  id="card-phone"
+                  name="phone"
+                  type="tel"
+                  value="<%= formData.phone || '' %>"
+                  placeholder="+1 555 234 5678"
+                  data-preview="phone"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-whatsapp">WhatsApp</label>
+                <input
+                  class="glass-input"
+                  id="card-whatsapp"
+                  name="whatsapp"
+                  type="tel"
+                  value="<%= formData.whatsapp || '' %>"
+                  placeholder="+1 555 234 5678"
+                >
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-public-email">Public Email</label>
+                <input
+                  class="glass-input"
+                  id="card-public-email"
+                  name="public_email"
+                  type="email"
+                  value="<%= formData.public_email || '' %>"
+                  placeholder="hello@company.com"
+                  data-preview="email"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="card-website">Website <span class="glass-label-sub">(https://...)</span></label>
+                <input
+                  class="glass-input"
+                  id="card-website"
+                  name="website"
+                  type="url"
+                  value="<%= formData.website || '' %>"
+                  placeholder="https://example.com"
+                >
+              </div>
+            </div>
+
+            <!-- Accent Color Picker -->
+            <div class="glass-form-group">
+              <span class="glass-label">Liquid Glass Accent Tint</span>
+              <div class="accent-swatch-row">
+                <% accentPresets.forEach(function(preset, idx) { %>
+                  <label class="accent-radio-label" title="<%= preset.name %>">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value="<%= preset.hex %>"
+                      <%= (formData.theme ? formData.theme === preset.hex : idx === 0) ? 'checked' : '' %>
+                      data-accent-choice="<%= preset.hex %>"
+                    >
+                    <span class="accent-swatch-circle" style="background: <%= preset.hex %>;"></span>
+                  </label>
+                <% }); %>
+              </div>
+            </div>
+
+            <!-- Social Links -->
+            <details style="margin-bottom: 1.25rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); padding: 0.9rem 1rem;">
+              <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text-main);">
+                Social Links (Optional — https://...)
+              </summary>
+              <div class="form-grid-2" style="margin-top: 1rem;">
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-linkedin">LinkedIn</label>
+                  <input class="glass-input" id="social-linkedin" name="social_linkedin" type="url" value="<%= formData.social_linkedin || '' %>" placeholder="https://linkedin.com/in/...">
+                </div>
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-github">GitHub</label>
+                  <input class="glass-input" id="social-github" name="social_github" type="url" value="<%= formData.social_github || '' %>" placeholder="https://github.com/...">
+                </div>
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-x">X / Twitter</label>
+                  <input class="glass-input" id="social-x" name="social_x" type="url" value="<%= formData.social_x || '' %>" placeholder="https://x.com/...">
+                </div>
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-instagram">Instagram</label>
+                  <input class="glass-input" id="social-instagram" name="social_instagram" type="url" value="<%= formData.social_instagram || '' %>" placeholder="https://instagram.com/...">
+                </div>
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-telegram">Telegram</label>
+                  <input class="glass-input" id="social-telegram" name="social_telegram" type="url" value="<%= formData.social_telegram || '' %>" placeholder="https://t.me/...">
+                </div>
+                <div class="glass-form-group" style="margin-bottom: 0.5rem;">
+                  <label class="glass-label" for="social-youtube">YouTube</label>
+                  <input class="glass-input" id="social-youtube" name="social_youtube" type="url" value="<%= formData.social_youtube || '' %>" placeholder="https://youtube.com/@...">
+                </div>
+              </div>
+            </details>
+
+            <div class="js-only-nav">
+              <button type="button" class="glass-pill glass-btn-secondary" id="btn-prev-step">
+                Back
+              </button>
+              <button type="submit" class="glass-pill glass-btn-primary">
+                Launch My Virtual Card
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Non-JS fallback submit button -->
+          <div class="nojs-submit-divider" style="margin-top: 1.5rem;">
+            <button type="submit" class="glass-pill glass-btn-primary" style="width: 100%; justify-content: center;">
+              Create My Virtual Card
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Right Column: Live Glass Card Preview -->
+      <aside class="sticky-preview glass-enter delay-3" aria-label="Live Card Preview">
+        <div style="text-align: center; margin-bottom: 0.85rem;">
+          <span class="glass-badge">
+            <span class="glass-badge-dot"></span>
+            Live Subdomain Preview
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: center;">
+          <div class="vcard-preview-card" id="signup-live-card">
+            <div class="vcard-avatar-wrap">
+              <img
+                id="preview-avatar-img"
+                class="vcard-avatar-img"
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23ffffff'/%3E%3Cpath d='M25 80c0-14 11-24 25-24s25 10 25 24' fill='%23ffffff'/%3E%3C/svg%3E"
+                alt="Avatar preview"
+              >
+            </div>
+
+            <h2 class="vcard-name" id="preview-name"><%= formData.full_name || 'Your Full Name' %></h2>
+            <div class="vcard-role" id="preview-role"><%= formData.job_title || 'Your Job Title' %></div>
+            <div class="vcard-company" id="preview-company"><%= formData.company || 'Your Company' %></div>
+            <div class="vcard-tagline" id="preview-tagline"><%= formData.tagline || 'A brief tagline or bio appears here' %></div>
+
+            <div class="vcard-actions">
+              <span class="glass-pill glass-btn-primary" style="justify-content: center;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span id="preview-phone"><%= formData.phone || 'Call Contact' %></span>
+              </span>
+              <span class="glass-pill glass-btn-secondary" style="justify-content: center;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span id="preview-email"><%= formData.public_email || 'Email Contact' %></span>
+              </span>
+            </div>
+
+            <div style="font-size: 0.78rem; color: var(--text-dim);">
+              <strong style="color: var(--accent);" id="preview-subdomain"><%= formData.username || 'username' %></strong>.<%= baseDomain %>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="/js/signup.js" defer></script>
+</body>
+</html>
