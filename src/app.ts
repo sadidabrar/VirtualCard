@@ -81,6 +81,7 @@ export function createApp(deps: AppDependencies): Express {
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
           formAction: ["'self'"],
+          upgradeInsecureRequests: null,
         },
       },
       crossOriginEmbedderPolicy: false,
@@ -144,7 +145,7 @@ export function createApp(deps: AppDependencies): Express {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: isProd,
+        secure: isProd ? 'auto' : false,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },

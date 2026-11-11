@@ -699,4 +699,58 @@ describe('VirtualCard Backend Integration Tests', () => {
     expect(availAgain.status).toBe(200);
     expect(availAgain.body.data.available).toBe(true);
   });
+
+  it('serves static assets over HTTP without CSP upgrade-insecure-requests and sets Secure cookie behind HTTPS proxy in production', async () => {
+    const prodUploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-prod-uploads-'));
+    const prodEnv = parseEnv({
+      NODE_ENV: 'production',
+      PORT: '3000',
+      BASE_DOMAIN: 'virtualcard.duckdns.org',
+      DATABASE_URL: ':memory:',
+      UPLOAD_DIR: prodUploadDir,
+      SESSION_SECRET: 'prod_test_session_secret_with_at_least_32_characters_long',
+      MASTER_EMAIL: 'master@virtualcard.duckdns.org',
+      MASTER_USERNAME: 'master',
+      MASTER_PASSWORD: 'MasterProdTestPassword2026!',
+      LOG_LEVEL: 'silent',
+    });
+
+    const { sqliteDb: prodSqlite, db: prodDb } = createDatabase(':memory:');
+    applyMigrations(prodDb);
+    const prodApp = createApp({
+      env: prodEnv,
+      db: prodDb,
+      sqliteDb: prodSqlite,
+      logger: createLogger({ nodeEnv: 'production', logLevel: 'silent' }),
+    });
+
+    try {
+      const httpRes = await request(prodApp).get('/');
+      expect(httpRes.status).toBe(200);
+      expect(httpRes.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+
+      const cssRes = await request(prodApp).get('/css/glass.css');
+      expect(cssRes.status).toBe(200);
+      expect(cssRes.headers['content-type']).toContain('text/css');
+
+      // Direct HTTP login request does not mark cookie Secure so LAN IP sessions still work
+      const httpLoginGet = await request(prodApp).get('/login');
+      const httpCookies = httpLoginGet.headers['set-cookie'] ?? [];
+      expect(httpCookies.some((c) => c.startsWith('vc_session='))).toBe(true);
+      expect(httpCookies.some((c) => c.includes('Secure'))).toBe(false);
+
+      // Behind Nginx Proxy Manager (X-Forwarded-Proto: https), session cookie gets Secure flag
+      const httpsLoginGet = await request(prodApp)
+        .get('/login')
+        .set('Host', 'virtualcard.duckdns.org')
+        .set('X-Forwarded-Proto', 'https');
+      const httpsCookies = httpsLoginGet.headers['set-cookie'] ?? [];
+      expect(httpsCookies.some((c) => c.startsWith('vc_session=') && c.includes('Secure'))).toBe(
+        true
+      );
+    } finally {
+      prodSqlite.close();
+      fs.rmSync(prodUploadDir, { recursive: true, force: true });
+    }
+  });
 });
