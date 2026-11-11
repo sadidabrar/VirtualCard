@@ -160,7 +160,7 @@
             </div>
 
             <div class="form-grid-2">
-              <div class="glass-form-group">
+              <div class="glass-form-group" style="margin-bottom: 0.35rem;">
                 <label class="glass-label" for="signup-password">Password <span class="glass-label-sub">(min 8 chars)</span></label>
                 <input
                   class="glass-input"
@@ -174,7 +174,7 @@
                 >
               </div>
 
-              <div class="glass-form-group">
+              <div class="glass-form-group" style="margin-bottom: 0.35rem;">
                 <label class="glass-label" for="signup-confirm-password">Confirm Password</label>
                 <input
                   class="glass-input"
@@ -188,6 +188,7 @@
                 >
               </div>
             </div>
+            <div class="availability-hint" id="password-match-hint" aria-live="polite" style="margin-bottom: 1.15rem;"></div>
 
             <div class="js-only-nav">
               <span></span>
@@ -250,12 +251,11 @@
               <div class="glass-form-group">
                 <label class="glass-label" for="card-avatar">Avatar Image <span class="glass-label-sub">(max 5 MB)</span></label>
                 <input
-                  class="glass-input"
+                  class="glass-file-input"
                   id="card-avatar"
                   name="avatar"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
-                  style="padding: 0.55rem 0.75rem;"
                 >
               </div>
             </div>

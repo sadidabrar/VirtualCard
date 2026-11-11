@@ -5,12 +5,10 @@ export const ALLOWED_SOCIAL_PLATFORMS = [
   'instagram',
   'facebook',
   'telegram',
-  'youtube'
+  'youtube',
 ] as const;
 
-export type SocialPlatform = typeof ALLOWED_SOCIAL_PLATFORMS[number];
-
-export type SocialLinksMap = Partial<Record<SocialPlatform, string>>;
+export type SocialPlatform = (typeof ALLOWED_SOCIAL_PLATFORMS)[number];
 
 export const ACCENT_PRESETS = [
   { hex: '#38bdf8', name: 'Electric Sky' },
@@ -18,7 +16,7 @@ export const ACCENT_PRESETS = [
   { hex: '#10b981', name: 'Emerald Green' },
   { hex: '#f43f5e', name: 'Rose Sunset' },
   { hex: '#f59e0b', name: 'Amber Gold' },
-  { hex: '#6366f1', name: 'Indigo Pulse' }
+  { hex: '#6366f1', name: 'Indigo Pulse' },
 ] as const;
 
 export function sanitizeText(value: unknown, maxLen = 200): string {
@@ -26,10 +24,6 @@ export function sanitizeText(value: unknown, maxLen = 200): string {
   return value.trim().slice(0, maxLen);
 }
 
-/**
- * Strictly ensures URL starts with http:// or https:// and parses cleanly.
- * Returns empty string for javascript:, data:, vbscript:, or invalid URLs.
- */
 export function sanitizeHttpUrl(value: unknown): string {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
@@ -57,21 +51,20 @@ export function sanitizeHexColor(value: unknown, fallback = '#38bdf8'): string {
   return fallback;
 }
 
-export function isValidEmail(email: string): boolean {
-  const trimmed = email.trim();
-  if (trimmed.length < 3 || trimmed.length > 254) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-}
-
 export function sanitizePhone(value: unknown): string {
   if (typeof value !== 'string') return '';
-  return value.trim().replace(/[^\d+\-\s().]/g, '').slice(0, 32);
+  return value
+    .trim()
+    .replace(/[^\d+\-\s().]/g, '')
+    .slice(0, 32);
 }
 
-export function parseSocials(rawJson: string | null | undefined): Array<{ platform: SocialPlatform; url: string }> {
+export function parseSocials(
+  rawJson: string | null | undefined
+): Array<{ platform: SocialPlatform; url: string }> {
   if (!rawJson) return [];
   try {
-    const parsed = JSON.parse(rawJson);
+    const parsed: unknown = JSON.parse(rawJson);
     if (!parsed || typeof parsed !== 'object') return [];
     const results: Array<{ platform: SocialPlatform; url: string }> = [];
     for (const [key, val] of Object.entries(parsed)) {
@@ -90,9 +83,10 @@ export function parseSocials(rawJson: string | null | undefined): Array<{ platfo
 
 export function buildSocialsJson(input: Record<string, unknown>, order?: string[]): string {
   const sanitized: Record<string, string> = {};
-  const keysToProcess = Array.isArray(order) && order.length > 0
-    ? [...order, ...ALLOWED_SOCIAL_PLATFORMS]
-    : [...ALLOWED_SOCIAL_PLATFORMS];
+  const keysToProcess =
+    Array.isArray(order) && order.length > 0
+      ? [...order, ...ALLOWED_SOCIAL_PLATFORMS]
+      : [...ALLOWED_SOCIAL_PLATFORMS];
 
   const seen = new Set<string>();
   for (const key of keysToProcess) {

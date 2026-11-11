@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnPrev = document.getElementById('btn-prev-step');
   const form = document.getElementById('signup-form');
 
+  const passInput = document.getElementById('signup-password');
+  const confirmInput = document.getElementById('signup-confirm-password');
+  const passwordHint = document.getElementById('password-match-hint');
+
   function showStep(stepNumber) {
     if (!step1Panel || !step2Panel) return;
     if (stepNumber === 1) {
@@ -22,31 +26,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Step 1 validation before advancing
-  btnNext?.addEventListener('click', () => {
+  function validatePasswordMatch(forceShow = false) {
+    if (!passInput || !confirmInput || !passwordHint) return true;
+    const p1 = passInput.value;
+    const p2 = confirmInput.value;
+
+    if (!p1 && !p2 && !forceShow) {
+      passwordHint.textContent = '';
+      passwordHint.className = 'availability-hint';
+      confirmInput.classList.remove('is-invalid');
+      confirmInput.setCustomValidity('');
+      return true;
+    }
+
+    if (p1.length > 0 && p1.length < 8) {
+      passwordHint.textContent = '✗ Password must be at least 8 characters.';
+      passwordHint.className = 'availability-hint availability-err';
+      confirmInput.classList.remove('is-invalid');
+      return false;
+    }
+
+    if ((p2.length > 0 || forceShow) && p1 !== p2) {
+      passwordHint.textContent = '✗ Passwords do not match.';
+      passwordHint.className = 'availability-hint availability-err';
+      confirmInput.classList.add('is-invalid');
+      confirmInput.setCustomValidity('Passwords do not match.');
+      return false;
+    }
+
+    if (p1.length >= 8 && p1 === p2) {
+      passwordHint.textContent = '✓ Passwords match.';
+      passwordHint.className = 'availability-hint availability-ok';
+      confirmInput.classList.remove('is-invalid');
+      confirmInput.setCustomValidity('');
+      return true;
+    }
+
+    passwordHint.textContent = '';
+    passwordHint.className = 'availability-hint';
+    confirmInput.classList.remove('is-invalid');
+    confirmInput.setCustomValidity('');
+    return true;
+  }
+
+  passInput?.addEventListener('input', () => validatePasswordMatch(false));
+  confirmInput?.addEventListener('input', () => validatePasswordMatch(false));
+  confirmInput?.addEventListener('blur', () => validatePasswordMatch(false));
+
+  function validateStep1AndAdvance() {
+    if (!step1Panel) return;
     const step1Inputs = step1Panel.querySelectorAll('input');
     for (const input of step1Inputs) {
+      if (input === confirmInput) {
+        if (!validatePasswordMatch(true)) {
+          confirmInput.reportValidity();
+          return;
+        }
+      }
       if (!input.checkValidity()) {
         input.reportValidity();
         return;
       }
     }
-    const pass = document.getElementById('signup-password');
-    const confirm = document.getElementById('signup-confirm-password');
-    if (pass && confirm && pass.value !== confirm.value) {
-      confirm.setCustomValidity('Passwords do not match.');
-      confirm.reportValidity();
-      confirm.setCustomValidity('');
+    if (!validatePasswordMatch(true)) {
+      confirmInput?.focus();
       return;
     }
     showStep(2);
-  });
+  }
 
+  btnNext?.addEventListener('click', validateStep1AndAdvance);
   btnPrev?.addEventListener('click', () => showStep(1));
   dot1?.addEventListener('click', () => showStep(1));
-  dot2?.addEventListener('click', () => showStep(2));
+  dot2?.addEventListener('click', validateStep1AndAdvance);
 
-  // Ensure any hidden step 1 validation errors reveal step 1 on submit
+  // Ensure any hidden Step 1 validation errors reveal Step 1 on submit
   form?.addEventListener(
     'invalid',
     (e) => {
@@ -108,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Debounced AJAX Username Availability Check
+  // Debounced AJAX Username Availability Check (Unified { ok, data } contract)
   let debounceTimer = null;
   async function checkUsernameAvailability(rawVal) {
     const val = rawVal.trim().toLowerCase();
@@ -127,13 +181,21 @@ document.addEventListener('DOMContentLoaded', () => {
     availabilityEl.className = 'availability-hint';
 
     try {
-      const res = await fetch(`/api/username-available?u=${encodeURIComponent(val)}`);
-      const data = await res.json();
-      if (data.available) {
-        availabilityEl.textContent = `✓ ${data.username} is available!`;
-        availabilityEl.className = 'availability-hint availability-ok';
-      } else {
-        availabilityEl.textContent = `✗ ${data.reason || 'This username is unavailable.'}`;
+      const res = await fetch(`/api/username-available?u=${encodeURIComponent(val)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      const payload = await res.json();
+      if (payload.ok && payload.data) {
+        const { available, username, reason } = payload.data;
+        if (available) {
+          availabilityEl.textContent = `✓ ${username} is available!`;
+          availabilityEl.className = 'availability-hint availability-ok';
+        } else {
+          availabilityEl.textContent = `✗ ${reason || 'This username is unavailable.'}`;
+          availabilityEl.className = 'availability-hint availability-err';
+        }
+      } else if (payload.error) {
+        availabilityEl.textContent = `✗ ${payload.error.message}`;
         availabilityEl.className = 'availability-hint availability-err';
       }
     } catch {

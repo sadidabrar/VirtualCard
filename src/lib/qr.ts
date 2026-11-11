@@ -1,8 +1,12 @@
 import QRCode from 'qrcode';
-import { getCanonicalTenantUrl } from '../config.js';
+import { getCanonicalTenantUrl } from './url.js';
 
-export async function generateQrDataUrl(username: string, size = 256): Promise<string> {
-  const url = getCanonicalTenantUrl(username);
+export async function generateQrDataUrl(
+  username: string,
+  baseDomain: string,
+  size = 256
+): Promise<string> {
+  const url = getCanonicalTenantUrl(username, baseDomain);
   return QRCode.toDataURL(url, {
     errorCorrectionLevel: 'H',
     margin: 2,
@@ -14,9 +18,13 @@ export async function generateQrDataUrl(username: string, size = 256): Promise<s
   });
 }
 
-export async function generateQrPngBuffer(username: string, size = 2048): Promise<Buffer> {
+export async function generateQrPngBuffer(
+  username: string,
+  baseDomain: string,
+  size = 2048
+): Promise<Buffer> {
   const safeSize = Math.min(Math.max(Number(size) || 2048, 128), 4096);
-  const url = getCanonicalTenantUrl(username);
+  const url = getCanonicalTenantUrl(username, baseDomain);
   return QRCode.toBuffer(url, {
     type: 'png',
     errorCorrectionLevel: 'H',
@@ -29,8 +37,8 @@ export async function generateQrPngBuffer(username: string, size = 2048): Promis
   });
 }
 
-export async function generateQrSvgString(username: string): Promise<string> {
-  const url = getCanonicalTenantUrl(username);
+export async function generateQrSvgString(username: string, baseDomain: string): Promise<string> {
+  const url = getCanonicalTenantUrl(username, baseDomain);
   return QRCode.toString(url, {
     type: 'svg',
     errorCorrectionLevel: 'H',

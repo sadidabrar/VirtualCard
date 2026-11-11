@@ -1,15 +1,6 @@
 import crypto from 'crypto';
-import { Request, Response, NextFunction } from 'express';
-
-declare module 'express-session' {
-  interface SessionData {
-    csrfToken?: string;
-    userId?: number;
-    username?: string;
-    role?: 'owner' | 'master';
-    recentSignupUsername?: string;
-  }
-}
+import type { Request, Response, NextFunction } from 'express';
+import { AuthError } from '../types/errors.js';
 
 export function ensureCsrfToken(req: Request, res: Response, next: NextFunction): void {
   if (!req.session) {
@@ -22,7 +13,7 @@ export function ensureCsrfToken(req: Request, res: Response, next: NextFunction)
   next();
 }
 
-export function verifyCsrf(req: Request, res: Response, next: NextFunction): void {
+export function verifyCsrf(req: Request, _res: Response, next: NextFunction): void {
   const sessionToken = req.session?.csrfToken;
   const submittedToken =
     (typeof req.body?._csrf === 'string' && req.body._csrf) ||
@@ -30,31 +21,29 @@ export function verifyCsrf(req: Request, res: Response, next: NextFunction): voi
     '';
 
   if (!sessionToken || !submittedToken || sessionToken.length !== submittedToken.length) {
-    return renderCsrfFailure(req, res);
+    return next(
+      new AuthError(
+        'Invalid or expired CSRF token. Please refresh the page and try again.',
+        403,
+        'CSRF_INVALID',
+        '_csrf'
+      )
+    );
   }
 
   const a = Buffer.from(sessionToken, 'utf8');
   const b = Buffer.from(submittedToken, 'utf8');
 
   if (!crypto.timingSafeEqual(a, b)) {
-    return renderCsrfFailure(req, res);
+    return next(
+      new AuthError(
+        'Invalid or expired CSRF token. Please refresh the page and try again.',
+        403,
+        'CSRF_INVALID',
+        '_csrf'
+      )
+    );
   }
 
   next();
-}
-
-function renderCsrfFailure(req: Request, res: Response): void {
-  if (req.accepts(['html', 'json']) === 'json' && !req.accepts('html')) {
-    res.status(403).json({ error: 'Invalid or expired CSRF token. Please refresh and try again.' });
-    return;
-  }
-  res.status(403).render('tenant-error', {
-    title: 'Security Verification Failed',
-    badge: '403 • CSRF Protection',
-    heading: 'Session Verification Expired',
-    message: 'Your form security token expired or was invalid. Please go back, refresh the page, and submit again.',
-    ctaText: 'Go Back Home',
-    ctaLink: '/',
-    accent: '#f43f5e',
-  });
 }

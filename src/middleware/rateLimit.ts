@@ -1,61 +1,77 @@
-import rateLimit from 'express-rate-limit';
-import { config } from '../config.js';
+import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
+import { RateLimitError } from '../types/errors.js';
 
-export const signupRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: config.isProd ? 10 : 60,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  handler: (_req, res) => {
-    res.status(429).render('tenant-error', {
-      title: 'Too Many Requests',
-      badge: '429 • Rate Limit',
-      heading: 'Slow Down a Moment',
-      message: 'Too many signup attempts from this address. Please try again in 15 minutes.',
-      ctaText: 'Back to Home',
-      ctaLink: '/',
-      accent: '#f59e0b',
-    });
-  },
-});
+export interface AppRateLimiters {
+  signup: RateLimitRequestHandler;
+  login: RateLimitRequestHandler;
+  usernameCheck: RateLimitRequestHandler;
+  qr: RateLimitRequestHandler;
+}
 
-export const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: config.isProd ? 15 : 80,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  handler: (_req, res) => {
-    res.status(429).render('tenant-error', {
-      title: 'Too Many Login Attempts',
-      badge: '429 • Rate Limit',
-      heading: 'Too Many Login Attempts',
-      message: 'Please wait 15 minutes before attempting to sign in again.',
-      ctaText: 'Back to Login',
-      ctaLink: '/login',
-      accent: '#f59e0b',
-    });
-  },
-});
+/**
+ * Per-route class rate limiters backed by express-rate-limit (in-memory store;
+ * for multi-instance horizontal scaling, swap in a shared SQLite or Redis store).
+ */
+export function createRateLimiters(): AppRateLimiters {
+  return {
+    signup: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 5, // strict: 5 attempts per minute per IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Too many signup attempts from this address. Please wait a minute and try again.',
+            'SIGNUP_RATE_LIMIT'
+          )
+        );
+      },
+    }),
 
-export const usernameCheckRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  limit: config.isProd ? 60 : 200,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  handler: (_req, res) => {
-    res.status(429).json({
-      available: false,
-      error: 'Rate limit exceeded. Please wait a moment before checking again.',
-    });
-  },
-});
+    login: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 5, // strict: 5 attempts per minute per IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Too many login attempts. Please wait a minute before trying again.',
+            'LOGIN_RATE_LIMIT'
+          )
+        );
+      },
+    }),
 
-export const qrRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  limit: config.isProd ? 40 : 200,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  handler: (_req, res) => {
-    res.status(429).send('Too many QR code generation requests. Please try again shortly.');
-  },
-});
+    usernameCheck: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 30, // moderate: 30/min per IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Rate limit exceeded for username availability checks.',
+            'USERNAME_CHECK_RATE_LIMIT'
+          )
+        );
+      },
+    }),
+
+    qr: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 30, // moderate: 30/min per IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Too many QR generation requests. Please wait a moment.',
+            'QR_RATE_LIMIT'
+          )
+        );
+      },
+    }),
+  };
+}

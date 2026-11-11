@@ -1,63 +1,95 @@
 import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
 import fs from 'fs';
 import * as schema from './schema.js';
 
-const dbPath = process.env.DATABASE_URL || 'data/db/virtualcard.db';
-const fullDbPath = path.isAbsolute(dbPath) ? dbPath : path.join(process.cwd(), dbPath);
+export type AppDatabase = BetterSQLite3Database<typeof schema>;
 
-// Ensure database directory exists
-const dbDir = path.dirname(fullDbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+export interface DatabaseHandle {
+  sqliteDb: Database.Database;
+  db: AppDatabase;
 }
 
-export const sqliteDb = new Database(fullDbPath);
+export function createDatabase(dbPath: string): DatabaseHandle {
+  const isMemory = dbPath === ':memory:';
+  const fullDbPath = isMemory
+    ? ':memory:'
+    : path.isAbsolute(dbPath)
+      ? dbPath
+      : path.join(process.cwd(), dbPath);
 
-// SQLite WAL mode & foreign keys for high-performance concurrent reads
-sqliteDb.pragma('journal_mode = WAL');
-sqliteDb.pragma('foreign_keys = ON');
+  if (!isMemory) {
+    const dbDir = path.dirname(fullDbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+  }
 
-// Initialize schema tables idempotently
-sqliteDb.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'owner' CHECK(role IN ('owner', 'master')),
-    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'suspended')),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
+  const sqliteDb = new Database(fullDbPath);
+  if (!isMemory) {
+    sqliteDb.pragma('journal_mode = WAL');
+  }
+  sqliteDb.pragma('foreign_keys = ON');
 
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email);
+  const db = drizzle(sqliteDb, { schema });
+  return { sqliteDb, db };
+}
 
-  CREATE TABLE IF NOT EXISTS cards (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    full_name TEXT NOT NULL DEFAULT '',
-    job_title TEXT DEFAULT '',
-    company TEXT DEFAULT '',
-    tagline TEXT DEFAULT '',
-    phone TEXT DEFAULT '',
-    whatsapp TEXT DEFAULT '',
-    public_email TEXT DEFAULT '',
-    website TEXT DEFAULT '',
-    address TEXT DEFAULT '',
-    socials TEXT DEFAULT '{}',
-    avatar_url TEXT DEFAULT '',
-    logo_url TEXT DEFAULT '',
-    theme TEXT NOT NULL DEFAULT '#38bdf8',
-    is_published INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-  );
+export function applyMigrations(
+  db: AppDatabase,
+  migrationsFolder = path.join(process.cwd(), 'drizzle')
+): void {
+  migrate(db, { migrationsFolder });
+}
 
-  CREATE INDEX IF NOT EXISTS idx_cards_user_id ON cards (user_id);
-`);
+export interface MigrationCheckResult {
+  upToDate: boolean;
+  appliedCount: number;
+  expectedCount: number;
+  missingTags: string[];
+}
 
-export const db = drizzle(sqliteDb, { schema });
+export function checkMigrationsUpToDate(
+  sqliteDb: Database.Database,
+  migrationsFolder = path.join(process.cwd(), 'drizzle')
+): MigrationCheckResult {
+  const journalPath = path.join(migrationsFolder, 'meta', '_journal.json');
+  if (!fs.existsSync(journalPath)) {
+    throw new Error(`Drizzle migration journal not found at ${journalPath}`);
+  }
+
+  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8')) as {
+    entries: Array<{ idx: number; when: number; tag: string }>;
+  };
+
+  const tableExists = sqliteDb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'")
+    .get();
+
+  if (!tableExists) {
+    return {
+      upToDate: false,
+      appliedCount: 0,
+      expectedCount: journal.entries.length,
+      missingTags: journal.entries.map((e) => e.tag),
+    };
+  }
+
+  const appliedRows = sqliteDb
+    .prepare('SELECT created_at FROM __drizzle_migrations')
+    .all() as Array<{ created_at: number }>;
+
+  const appliedTimestamps = new Set(appliedRows.map((r) => Number(r.created_at)));
+  const missingTags = journal.entries
+    .filter((entry) => !appliedTimestamps.has(entry.when))
+    .map((entry) => entry.tag);
+
+  return {
+    upToDate: missingTags.length === 0,
+    appliedCount: appliedRows.length,
+    expectedCount: journal.entries.length,
+    missingTags,
+  };
+}
