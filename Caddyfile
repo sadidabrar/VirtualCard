@@ -1,0 +1,28 @@
+{
+  email {$ACME_EMAIL:admin@virtualcard.duckdns.org}
+}
+
+# Single wildcard DNS-01 certificate covering apex domain + all tenant subdomains.
+# On-demand TLS is intentionally NOT used.
+{$BASE_DOMAIN:virtualcard.duckdns.org}, *.{$BASE_DOMAIN:virtualcard.duckdns.org} {
+  tls {
+    dns duckdns {$DUCKDNS_TOKEN}
+  }
+
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Frame-Options "SAMEORIGIN"
+    -Server
+  }
+
+  reverse_proxy app:3000 {
+    header_up Host {host}
+    header_up X-Forwarded-Host {host}
+    header_up X-Real-IP {remote_host}
+    health_uri /healthz
+    health_interval 30s
+    health_timeout 5s
+  }
+}

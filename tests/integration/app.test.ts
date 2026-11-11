@@ -595,7 +595,11 @@ describe('VirtualCard Backend Integration Tests', () => {
       .type('form')
       .send({ _csrf: masterCsrf, status: 'suspended', redirect_to: 'list' });
     expect(suspendRes.status).toBe(302);
-    expect(suspendRes.headers.location).toBe('/master?status=updated');
+    expect(suspendRes.headers.location).toBe('/master?notice=status_updated');
+
+    const followSuspendDash = await masterAgent.get('/master?notice=status_updated');
+    expect(followSuspendDash.status).toBe(200);
+    expect(followSuspendDash.text).toContain('Account status updated.');
 
     const suspendedCard = await request(ctx.app)
       .get('/')

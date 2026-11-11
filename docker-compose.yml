@@ -1,0 +1,68 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: virtualcard_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: /app/data/db/virtualcard.db
+      UPLOAD_DIR: /app/data/uploads
+    expose:
+      - "3000"
+    volumes:
+      - virtualcard_db:/app/data/db
+      - virtualcard_uploads:/app/data/uploads
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/readyz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    stop_grace_period: 15s
+    networks:
+      - virtualcard_net
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: virtualcard_caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN:-virtualcard.duckdns.org}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:-}
+      ACME_EMAIL: ${MASTER_EMAIL:-admin@virtualcard.duckdns.org}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - virtualcard_net
+
+volumes:
+  virtualcard_db:
+  virtualcard_uploads:
+  caddy_data:
+  caddy_config:
+
+networks:
+  virtualcard_net:
+    driver: bridge

@@ -80,7 +80,7 @@ export class MasterController {
     let toastMessage: string | null = null;
     if (req.query.deleted && typeof req.query.deleted === 'string') {
       toastMessage = `Account @${req.query.deleted.replace(/[^a-z0-9-]/gi, '')} deleted.`;
-    } else if (req.query.status === 'updated') {
+    } else if (req.query.notice === 'status_updated') {
       toastMessage = 'Account status updated.';
     }
 
@@ -118,7 +118,7 @@ export class MasterController {
       toastMessage = 'User account & card updated.';
     } else if (req.query.pwreset === '1') {
       toastMessage = 'User password has been reset.';
-    } else if (req.query.status === 'updated') {
+    } else if (req.query.notice === 'status_updated') {
       toastMessage = 'Account status updated.';
     }
 
@@ -219,11 +219,11 @@ export class MasterController {
       }
 
       if (bodyParsed.data.redirect_to === 'list') {
-        res.redirect('/master?status=updated');
+        res.redirect('/master?notice=status_updated');
         return;
       }
 
-      res.redirect(`/master/users/${targetId}?status=updated`);
+      res.redirect(`/master/users/${targetId}?notice=status_updated`);
     } catch (err) {
       if (wantsJson(req) || !(err instanceof AppError)) {
         return next(err);

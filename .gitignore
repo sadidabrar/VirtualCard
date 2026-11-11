@@ -7,3 +7,7 @@ data/uploads/*
 !data/uploads/.gitkeep
 .DS_Store
 *.log
+test-results/
+playwright-report/
+.playwright/
+data/e2e/
