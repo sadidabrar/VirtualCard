@@ -59,6 +59,13 @@ export function sanitizePhone(value: unknown): string {
     .slice(0, 32);
 }
 
+export function formatWhatsAppUrl(rawPhone: string | null | undefined): string {
+  if (!rawPhone) return '';
+  const digits = rawPhone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return '';
+  return `https://wa.me/${digits}`;
+}
+
 export function parseSocials(
   rawJson: string | null | undefined
 ): Array<{ platform: SocialPlatform; url: string }> {

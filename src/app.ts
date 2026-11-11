@@ -103,7 +103,7 @@ export function createApp(deps: AppDependencies): Express {
     env.BASE_DOMAIN,
     isProd
   );
-  const tenantController = new TenantController(qrService);
+  const tenantController = new TenantController(qrService, env.BASE_DOMAIN, isProd);
   const mediaController = new MediaController(env.UPLOAD_DIR);
 
   const rateLimiters = createRateLimiters();

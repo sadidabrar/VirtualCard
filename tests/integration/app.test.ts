@@ -10,6 +10,7 @@ import { createLogger } from '../../src/lib/logger.js';
 import { parseEnv } from '../../src/lib/env.js';
 import { seedMasterAdmin } from '../../src/db/seed.js';
 import { UserRepository } from '../../src/repositories/userRepository.js';
+import { CardRepository } from '../../src/repositories/cardRepository.js';
 
 function createTestContext() {
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vc-test-uploads-'));
@@ -227,5 +228,63 @@ describe('VirtualCard Backend Integration Tests', () => {
       .set('Accept', 'application/json');
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('TENANT_NOT_FOUND');
+  });
+
+  it('serves full public card with OG tags, socials, vCard, QR, and hides unpublished cards from visitors', async () => {
+    const cardRepo = new CardRepository(ctx.db);
+    cardRepo.updateByUserId(1, {
+      phone: '+1 555-234-5678',
+      whatsapp: '+1 555-234-5678',
+      website: 'https://virtualcard.duckdns.org',
+      socials: JSON.stringify({
+        github: 'https://github.com/master',
+        linkedin: 'https://linkedin.com/in/master',
+      }),
+      address: 'San Francisco, CA',
+    });
+
+    const cardRes = await request(ctx.app).get('/').set('Host', 'master.virtualcard.duckdns.org');
+    expect(cardRes.status).toBe(200);
+    expect(cardRes.text).toContain('property="og:title"');
+    expect(cardRes.text).toContain(
+      'property="og:url" content="https://master.virtualcard.duckdns.org"'
+    );
+    expect(cardRes.text).toContain('https://wa.me/15552345678');
+    expect(cardRes.text).toContain('https://github.com/master');
+    expect(cardRes.text).toContain('San Francisco, CA');
+
+    // vCard download
+    const vcfRes = await request(ctx.app)
+      .get('/vcard')
+      .set('Host', 'master.virtualcard.duckdns.org');
+    expect(vcfRes.status).toBe(200);
+    expect(vcfRes.headers['content-type']).toContain('text/vcard');
+    expect(vcfRes.headers['content-disposition']).toContain('master.vcf');
+    expect(vcfRes.text).toContain('BEGIN:VCARD');
+    expect(vcfRes.text).toContain('URL;TYPE=CARD:https://master.virtualcard.duckdns.org');
+
+    // QR SVG download
+    const svgRes = await request(ctx.app)
+      .get('/qr.svg')
+      .set('Host', 'master.virtualcard.duckdns.org');
+    expect(svgRes.status).toBe(200);
+    expect(svgRes.headers['content-type']).toContain('image/svg+xml');
+    const svgContent = svgRes.text || Buffer.from(svgRes.body).toString('utf8');
+    expect(svgContent).toContain('<svg');
+
+    // Unpublish card -> visitor gets 404
+    cardRepo.updateByUserId(1, { is_published: false });
+    const unpubVisitor = await request(ctx.app)
+      .get('/')
+      .set('Host', 'master.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(unpubVisitor.status).toBe(404);
+    expect(unpubVisitor.body.error.code).toBe('CARD_UNPUBLISHED');
+
+    const unpubVcf = await request(ctx.app)
+      .get('/vcard')
+      .set('Host', 'master.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(unpubVcf.status).toBe(404);
   });
 });

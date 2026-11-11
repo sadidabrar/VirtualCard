@@ -9,6 +9,7 @@ export function createTenantRouter(
   const router = express.Router();
 
   router.get('/', controller.showPublicCard);
+  router.get('/vcard', controller.downloadVCard);
   router.get('/qr.png', rateLimiters.qr, controller.downloadQrPng);
   router.get('/qr.svg', rateLimiters.qr, controller.downloadQrSvg);
 
