@@ -108,3 +108,32 @@ export function buildSocialsJson(input: Record<string, unknown>, order?: string[
   }
   return JSON.stringify(sanitized);
 }
+
+export const SOCIAL_PLATFORM_META: Record<SocialPlatform, { label: string; placeholder: string }> =
+  {
+    linkedin: { label: 'LinkedIn', placeholder: 'https://linkedin.com/in/username' },
+    github: { label: 'GitHub', placeholder: 'https://github.com/username' },
+    x: { label: 'X / Twitter', placeholder: 'https://x.com/username' },
+    instagram: { label: 'Instagram', placeholder: 'https://instagram.com/username' },
+    facebook: { label: 'Facebook', placeholder: 'https://facebook.com/username' },
+    telegram: { label: 'Telegram', placeholder: 'https://t.me/username' },
+    youtube: { label: 'YouTube', placeholder: 'https://youtube.com/@channel' },
+  };
+
+export function getOrderedSocialFields(
+  rawJson: string | null | undefined
+): Array<{ platform: SocialPlatform; label: string; placeholder: string; url: string }> {
+  const existing = parseSocials(rawJson);
+  const existingMap = new Map(existing.map((e) => [e.platform, e.url]));
+  const orderedKeys: SocialPlatform[] = [
+    ...existing.map((e) => e.platform),
+    ...ALLOWED_SOCIAL_PLATFORMS.filter((p) => !existingMap.has(p)),
+  ];
+
+  return orderedKeys.map((platform) => ({
+    platform,
+    label: SOCIAL_PLATFORM_META[platform].label,
+    placeholder: SOCIAL_PLATFORM_META[platform].placeholder,
+    url: existingMap.get(platform) || '',
+  }));
+}

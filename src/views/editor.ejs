@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Card (@<%= tenant %>) — VirtualCard</title>
+  <link rel="stylesheet" href="/css/glass.css">
+  <style>
+    :root {
+      --accent: <%= card.theme || '#38bdf8' %>;
+      --accent-glow: color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+  </style>
+  <script src="/js/head.js"></script>
+</head>
+<body>
+  <%- include('partials/bg') %>
+
+  <!-- Editor Navigation Header -->
+  <div class="glass-nav-wrap">
+    <nav class="glass-nav" aria-label="Editor Navigation">
+      <a href="<%= rootHomeHref %>" class="glass-brand">
+        <span class="glass-brand-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect width="14" height="20" x="5" y="2" rx="3" />
+            <path d="M12 18h.01" />
+          </svg>
+        </span>
+        <span>VirtualCard <span style="font-weight: 500; color: var(--text-muted); font-size: 0.85rem;">Editor</span></span>
+      </a>
+
+      <div class="glass-nav-links">
+        <% if (currentUser && currentUser.role === 'master') { %>
+          <a href="<%= rootHomeHref %>master" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Master Panel</a>
+        <% } %>
+        <a href="<%= publicCardHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
+          View Live Card
+        </a>
+        <form method="POST" action="<%= logoutFormAction %>" style="display: inline; margin: 0;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Log Out</button>
+        </form>
+      </div>
+    </nav>
+  </div>
+
+  <main class="editor-page-shell">
+    <!-- Top Header Summary -->
+    <header class="editor-header-bar glass-enter delay-1">
+      <div>
+        <div class="glass-badge" style="margin-bottom: 0.5rem;">
+          <span class="glass-badge-dot"></span>
+          <span>@<%= tenant %> Workspace</span>
+        </div>
+        <h1 style="font-size: clamp(1.55rem, 3vw, 2.15rem); margin-bottom: 0.25rem;">Customize Your Liquid Glass Card</h1>
+        <p style="font-size: 0.9rem;">
+          Public URL: <a href="<%= publicCardHref %>" style="font-weight: 600;"><%= canonicalUrl %></a>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+        <button
+          type="button"
+          class="glass-pill glass-btn-secondary"
+          id="copy-card-url-btn"
+          data-copy-url="<%= canonicalUrl %>"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Copy Card Link
+        </button>
+        <a href="<%= publicCardHref %>" class="glass-pill glass-btn-primary">
+          Open Public Card
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <% if (errors && errors.length > 0) { %>
+      <div class="glass-alert glass-alert-error" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <% errors.forEach(function(err) { %>
+            <div><%= err %></div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (toastMessage) { %>
+      <div class="glass-alert glass-alert-success" role="status">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><%= toastMessage %></div>
+      </div>
+    <% } %>
+
+    <div class="editor-layout">
+      <!-- Column 1: Glass Sidebar -->
+      <aside class="glass-panel editor-sidebar glass-enter delay-2" aria-label="Editor Sections & Quick Actions">
+        <div class="editor-nav-group">
+          <div class="editor-nav-title">Sections</div>
+          <a href="#section-avatar" class="editor-nav-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Avatar &amp; Photo
+          </a>
+          <a href="#section-identity" class="editor-nav-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Identity &amp; Bio
+          </a>
+          <a href="#section-contact" class="editor-nav-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Contact Details
+          </a>
+          <a href="#section-theme" class="editor-nav-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+            Theme &amp; Visibility
+          </a>
+          <a href="#section-socials" class="editor-nav-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Social Links
+          </a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 0;">
+
+        <div class="editor-nav-group">
+          <div class="editor-nav-title">Print &amp; Export QR</div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 0.4rem 0;">
+            <div class="solid-qr-card" style="padding: 0.65rem; border-radius: 12px;">
+              <img src="<%= qrDataUrl %>" alt="QR Code for <%= tenant %>" width="112" height="112" style="display: block;">
+            </div>
+            <div style="display: flex; gap: 0.5rem; width: 100%;">
+              <a href="<%= qrPngHref %>" class="glass-pill glass-btn-secondary" style="flex: 1; justify-content: center; padding: 0.45rem 0.65rem; font-size: 0.78rem;" download>
+                PNG (2048px)
+              </a>
+              <a href="<%= qrSvgHref %>" class="glass-pill glass-btn-secondary" style="flex: 1; justify-content: center; padding: 0.45rem 0.65rem; font-size: 0.78rem;" download>
+                SVG Vector
+              </a>
+            </div>
+            <a href="<%= vcardHref %>" class="glass-pill glass-btn-secondary" style="width: 100%; justify-content: center; padding: 0.45rem 0.75rem; font-size: 0.78rem;" download>
+              Download .vcf Contact
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Column 2: Avatar Form & Main Card Form -->
+      <div class="editor-main-stack glass-enter delay-2">
+        <!-- Section 1: Avatar Form -->
+        <section class="glass-panel editor-section-panel" id="section-avatar" aria-labelledby="heading-avatar">
+          <div class="editor-section-head">
+            <h2 id="heading-avatar">Profile Avatar</h2>
+            <span class="glass-label-sub">Auto-cropped 512×512 WebP (EXIF stripped, max 5 MB)</span>
+          </div>
+
+          <div class="avatar-upload-zone">
+            <div class="avatar-ripple-ring avatar-upload-ripple" id="editor-avatar-ripple">
+              <img
+                id="editor-current-avatar-img"
+                src="<%= card.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23ffffff'/%3E%3Cpath d='M25 80c0-14 11-24 25-24s25 10 25 24' fill='%23ffffff'/%3E%3C/svg%3E" %>"
+                alt="Current profile photo"
+              >
+            </div>
+
+            <div style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 0.75rem;">
+              <form method="POST" action="<%= avatarFormAction %>" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <label class="glass-label" for="editor-avatar-input">Upload New Image <span class="glass-label-sub">(JPEG, PNG, WebP, GIF)</span></label>
+                <div style="display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center;">
+                  <input
+                    class="glass-file-input"
+                    id="editor-avatar-input"
+                    name="avatar"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    style="flex: 1; min-width: 200px;"
+                    required
+                  >
+                  <button type="submit" name="action" value="upload" class="glass-pill glass-btn-primary">
+                    Save Avatar
+                  </button>
+                </div>
+              </form>
+
+              <% if (card.avatar_url) { %>
+                <form method="POST" action="<%= avatarFormAction %>" style="display: inline-flex;">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="action" value="remove">
+                  <button type="submit" class="glass-pill glass-btn-danger" style="padding: 0.45rem 0.95rem; font-size: 0.8rem;">
+                    Remove Current Avatar
+                  </button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Card Edit Form -->
+        <form method="POST" action="<%= editFormAction %>" id="card-editor-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <!-- Section 2: Identity & Bio -->
+          <section class="glass-panel editor-section-panel" id="section-identity" aria-labelledby="heading-identity" style="margin-bottom: 1.5rem;">
+            <div class="editor-section-head">
+              <h2 id="heading-identity">Identity &amp; Role</h2>
+              <span class="glass-label-sub">Primary details displayed on your card</span>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-full-name">Full Name *</label>
+                <input
+                  class="glass-input"
+                  id="edit-full-name"
+                  name="full_name"
+                  type="text"
+                  value="<%= card.full_name || '' %>"
+                  placeholder="Mahbub Khan"
+                  required
+                  minlength="2"
+                  maxlength="100"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-job-title">Job Title</label>
+                <input
+                  class="glass-input"
+                  id="edit-job-title"
+                  name="job_title"
+                  type="text"
+                  value="<%= card.job_title || '' %>"
+                  placeholder="Founder &amp; Architect"
+                  maxlength="100"
+                >
+              </div>
+            </div>
+
+            <div class="glass-form-group">
+              <label class="glass-label" for="edit-company">Company / Organization</label>
+              <input
+                class="glass-input"
+                id="edit-company"
+                name="company"
+                type="text"
+                value="<%= card.company || '' %>"
+                placeholder="Acme Systems Ltd."
+                maxlength="100"
+              >
+            </div>
+
+            <div class="glass-form-group" style="margin-bottom: 0;">
+              <label class="glass-label" for="edit-tagline">Tagline / Bio</label>
+              <input
+                class="glass-input"
+                id="edit-tagline"
+                name="tagline"
+                type="text"
+                value="<%= card.tagline || '' %>"
+                placeholder="Building resilient web products &amp; clean infrastructure."
+                maxlength="200"
+              >
+            </div>
+          </section>
+
+          <!-- Section 3: Contact Details -->
+          <section class="glass-panel editor-section-panel" id="section-contact" aria-labelledby="heading-contact" style="margin-bottom: 1.5rem;">
+            <div class="editor-section-head">
+              <h2 id="heading-contact">Contact &amp; Location</h2>
+              <span class="glass-label-sub">Tap-to-call, WhatsApp &amp; vCard fields</span>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-phone">Phone Number</label>
+                <input
+                  class="glass-input"
+                  id="edit-phone"
+                  name="phone"
+                  type="tel"
+                  value="<%= card.phone || '' %>"
+                  placeholder="+880 1711 000000"
+                  maxlength="32"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-whatsapp">WhatsApp Number</label>
+                <input
+                  class="glass-input"
+                  id="edit-whatsapp"
+                  name="whatsapp"
+                  type="tel"
+                  value="<%= card.whatsapp || '' %>"
+                  placeholder="+880 1711 000000"
+                  maxlength="32"
+                >
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-public-email">Public Email</label>
+                <input
+                  class="glass-input"
+                  id="edit-public-email"
+                  name="public_email"
+                  type="email"
+                  value="<%= card.public_email || '' %>"
+                  placeholder="hello@example.com"
+                >
+              </div>
+
+              <div class="glass-form-group">
+                <label class="glass-label" for="edit-website">Website <span class="glass-label-sub">(https://...)</span></label>
+                <input
+                  class="glass-input"
+                  id="edit-website"
+                  name="website"
+                  type="url"
+                  value="<%= card.website || '' %>"
+                  placeholder="https://example.com"
+                >
+              </div>
+            </div>
+
+            <div class="glass-form-group" style="margin-bottom: 0;">
+              <label class="glass-label" for="edit-address">Office / Location Address</label>
+              <input
+                class="glass-input"
+                id="edit-address"
+                name="address"
+                type="text"
+                value="<%= card.address || '' %>"
+                placeholder="Dhaka, Bangladesh"
+                maxlength="200"
+              >
+            </div>
+          </section>
+
+          <!-- Section 4: Theme & Visibility -->
+          <section class="glass-panel editor-section-panel" id="section-theme" aria-labelledby="heading-theme" style="margin-bottom: 1.5rem;">
+            <div class="editor-section-head">
+              <h2 id="heading-theme">Theme &amp; Visibility</h2>
+              <span class="glass-label-sub">Refractive tint &amp; public status</span>
+            </div>
+
+            <div class="glass-form-group">
+              <span class="glass-label">Liquid Glass Accent Tint</span>
+              <div class="accent-swatch-row">
+                <% accentPresets.forEach(function(preset) { %>
+                  <label class="accent-radio-label" title="<%= preset.name %>">
+                    <input
+                      type="radio"
+                      name="theme"
+                      value="<%= preset.hex %>"
+                      <%= (card.theme || '#38bdf8').toLowerCase() === preset.hex.toLowerCase() ? 'checked' : '' %>
+                      data-accent-choice="<%= preset.hex %>"
+                    >
+                    <span class="accent-swatch-circle" style="background: <%= preset.hex %>;"></span>
+                  </label>
+                <% }); %>
+              </div>
+            </div>
+
+            <div class="glass-form-group" style="margin-bottom: 0;">
+              <label class="glass-toggle-wrap" for="edit-is-published">
+                <input
+                  type="checkbox"
+                  id="edit-is-published"
+                  name="is_published"
+                  value="true"
+                  <%= card.is_published ? 'checked' : '' %>
+                >
+                <span class="glass-toggle" aria-hidden="true">
+                  <span class="glass-toggle-thumb"></span>
+                </span>
+                <span>
+                  <strong style="display: block; font-size: 0.9rem; color: var(--text-main);">Publish Public Card</strong>
+                  <span style="display: block; font-size: 0.78rem; color: var(--text-muted);">
+                    When switched off, visitors receive a 404 while you can still preview privately.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Section 5: Social Links with Drag-to-Reorder + Accessible Move Buttons -->
+          <section class="glass-panel editor-section-panel" id="section-socials" aria-labelledby="heading-socials" style="margin-bottom: 1.5rem;">
+            <div class="editor-section-head">
+              <h2 id="heading-socials">Social Profiles</h2>
+              <span class="glass-label-sub">Drag rows or use arrows to customize order</span>
+            </div>
+
+            <input
+              type="hidden"
+              id="social-order-input"
+              name="social_order"
+              value="<%= orderedSocials.map(function(s) { return s.platform; }).join(',') %>"
+            >
+
+            <div class="social-drag-list" id="social-drag-list">
+              <% orderedSocials.forEach(function(s, index) { %>
+                <div class="social-drag-row" draggable="true" data-platform="<%= s.platform %>">
+                  <span class="social-drag-handle" title="Drag to reorder <%= s.label %>" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/>
+                      <circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>
+                      <circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/>
+                    </svg>
+                  </span>
+
+                  <label class="social-platform-badge" for="social-<%= s.platform %>"><%= s.label %></label>
+
+                  <input
+                    class="glass-input"
+                    id="social-<%= s.platform %>"
+                    name="social_<%= s.platform %>"
+                    type="url"
+                    value="<%= s.url %>"
+                    placeholder="<%= s.placeholder %>"
+                    data-social-input="<%= s.platform %>"
+                    style="padding: 0.58rem 0.85rem; font-size: 0.875rem;"
+                  >
+
+                  <div class="social-move-controls">
+                    <button
+                      type="button"
+                      class="social-move-btn"
+                      data-move="up"
+                      aria-label="Move <%= s.label %> up"
+                      <%= index === 0 ? 'disabled' : '' %>
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m18 15-6-6-6 6"/></svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="social-move-btn"
+                      data-move="down"
+                      aria-label="Move <%= s.label %> down"
+                      <%= index === orderedSocials.length - 1 ? 'disabled' : '' %>
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </section>
+
+          <!-- Sticky Save Footer -->
+          <div class="editor-sticky-save">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">
+              Changes take effect immediately on <strong style="color: var(--text-main);"><%= canonicalUrl %></strong>
+            </span>
+            <button type="submit" class="glass-pill glass-btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Save Card Changes
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Column 3: Sticky Live Glass Card Preview -->
+      <aside class="editor-preview-col glass-enter delay-3" aria-label="Live Card Preview">
+        <div style="text-align: center; margin-bottom: 0.85rem;">
+          <span class="glass-badge" id="preview-visibility-badge">
+            <span class="glass-badge-dot"></span>
+            <span id="preview-visibility-text"><%= card.is_published ? 'Live Public Card' : 'Private Draft (404 to Visitors)' %></span>
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: center;">
+          <div class="vcard-preview-card" id="editor-live-card">
+            <div class="vcard-avatar-wrap">
+              <img
+                id="preview-avatar-img"
+                class="vcard-avatar-img"
+                src="<%= card.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%23ffffff'/%3E%3Cpath d='M25 80c0-14 11-24 25-24s25 10 25 24' fill='%23ffffff'/%3E%3C/svg%3E" %>"
+                alt="Live card avatar preview"
+              >
+            </div>
+
+            <h2 class="vcard-name" id="preview-name"><%= card.full_name || 'Your Full Name' %></h2>
+            <div class="vcard-role" id="preview-role"><%= card.job_title || 'Your Job Title' %></div>
+            <div class="vcard-company" id="preview-company"><%= card.company || 'Your Company' %></div>
+            <div class="vcard-tagline" id="preview-tagline"><%= card.tagline || 'A brief tagline or bio appears here' %></div>
+
+            <div class="vcard-actions">
+              <span class="glass-pill glass-btn-primary" style="justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span id="preview-phone"><%= card.phone || 'Call Contact' %></span>
+              </span>
+              <span class="glass-pill glass-btn-secondary" style="justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span id="preview-email"><%= card.public_email || 'Email Contact' %></span>
+              </span>
+            </div>
+
+            <div id="preview-address" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              <%= card.address || '' %>
+            </div>
+
+            <div id="preview-socials-pills" class="vcard-socials-row" style="margin-bottom: 0.85rem;">
+              <% orderedSocials.forEach(function(s) { %>
+                <% if (s.url) { %>
+                  <span class="glass-badge" data-preview-platform="<%= s.platform %>" style="text-transform: capitalize;"><%= s.platform %></span>
+                <% } %>
+              <% }); %>
+            </div>
+
+            <div style="font-size: 0.78rem; color: var(--text-dim);">
+              <strong style="color: var(--accent);"><%= canonicalUrl.replace(/^https?:\/\//, '') %></strong>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div
+    class="glass-toast"
+    id="editor-toast"
+    role="status"
+    aria-live="polite"
+    data-toast-message="<%= toastMessage || '' %>"
+  ><%= toastMessage || '' %></div>
+
+  <script src="/js/editor.js" defer></script>
+</body>
+</html>

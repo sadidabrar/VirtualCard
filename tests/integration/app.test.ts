@@ -287,4 +287,190 @@ describe('VirtualCard Backend Integration Tests', () => {
       .set('Accept', 'application/json');
     expect(unpubVcf.status).toBe(404);
   });
+
+  it('enforces owner auth, tenant mismatch 403, card updates, social reordering, and avatar upload/removal', async () => {
+    // 1. Unauthenticated /edit redirects or returns 401
+    const unauthHtml = await request(ctx.app)
+      .get('/edit')
+      .set('Host', 'master.virtualcard.duckdns.org');
+    expect(unauthHtml.status).toBe(302);
+    expect(unauthHtml.headers.location).toContain('/login');
+
+    const unauthJson = await request(ctx.app)
+      .get('/edit')
+      .set('Host', 'master.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(unauthJson.status).toBe(401);
+    expect(unauthJson.body.error.code).toBe('UNAUTHENTICATED');
+
+    // 2. Sign up alice2026 (logs in automatically)
+    const agent = request.agent(ctx.app);
+    const signupPage = await agent.get('/signup');
+    const signupCsrf = extractCsrf(signupPage.text);
+
+    const signupRes = await agent.post('/signup').type('form').send({
+      _csrf: signupCsrf,
+      username: 'alice2026',
+      email: 'alice.editor@example.com',
+      password: 'Password123!',
+      confirm_password: 'Password123!',
+      full_name: 'Alice Original',
+    });
+    expect(signupRes.status).toBe(302);
+
+    // 3. Tenant mismatch: alice2026 cannot GET or POST /edit on master subdomain
+    const mismatchGet = await agent
+      .get('/edit')
+      .set('Host', 'master.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(mismatchGet.status).toBe(403);
+    expect(mismatchGet.body.error.code).toBe('TENANT_MISMATCH');
+
+    const mismatchPost = await agent
+      .post('/edit')
+      .set('Host', 'master.virtualcard.duckdns.org')
+      .set('Accept', 'application/json')
+      .type('form')
+      .send({
+        _csrf: signupCsrf,
+        full_name: 'Hacked Name',
+      });
+    expect(mismatchPost.status).toBe(403);
+    expect(mismatchPost.body.error.code).toBe('TENANT_MISMATCH');
+
+    // 4. Owner loads /edit on her own subdomain
+    const editPage = await agent.get('/edit').set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(editPage.status).toBe(200);
+    expect(editPage.text).toContain('Edit Card (@alice2026)');
+    const editCsrf = extractCsrf(editPage.text);
+
+    // 5. Invalid form submit renders 400 validation feedback
+    const invalidEdit = await agent
+      .post('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        full_name: 'X',
+        website: 'javascript:alert(1)',
+      });
+    expect(invalidEdit.status).toBe(400);
+
+    // 6. Valid card edit persists fields, theme, and custom social order (github before linkedin)
+    const saveRes = await agent
+      .post('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        full_name: 'Alice Updated',
+        job_title: 'Principal Systems Architect',
+        company: 'Liquid Co',
+        tagline: 'Designing glassmorphic web apps',
+        address: 'Dhaka, Bangladesh',
+        phone: '+8801711000000',
+        whatsapp: '+8801711000000',
+        public_email: 'alice@liquid.co',
+        website: 'https://liquid.co',
+        theme: '#10b981',
+        is_published: 'true',
+        social_linkedin: 'https://linkedin.com/in/alice-updated',
+        social_github: 'https://github.com/alice-updated',
+        social_order: 'github,linkedin',
+      });
+    expect(saveRes.status).toBe(302);
+    expect(saveRes.headers.location).toContain('/edit?saved=1');
+
+    const savedBannerPage = await agent
+      .get('/edit?saved=1')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(savedBannerPage.status).toBe(200);
+    expect(savedBannerPage.text).toContain('Card changes saved!');
+
+    const publicRes = await request(ctx.app)
+      .get('/')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(publicRes.status).toBe(200);
+    expect(publicRes.text).toContain('Alice Updated');
+    expect(publicRes.text).toContain('Principal Systems Architect');
+    expect(publicRes.text).toContain('Dhaka, Bangladesh');
+    expect(publicRes.text).toContain('#10b981');
+    const githubIdx = publicRes.text.indexOf('https://github.com/alice-updated');
+    const linkedinIdx = publicRes.text.indexOf('https://linkedin.com/in/alice-updated');
+    expect(githubIdx).toBeGreaterThan(-1);
+    expect(linkedinIdx).toBeGreaterThan(githubIdx);
+
+    // 7. Avatar upload & replace & removal
+    const pngBytes = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const avatarRes = await agent
+      .post('/edit/avatar')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .field('_csrf', editCsrf)
+      .attach('avatar', pngBytes, { filename: 'photo.png', contentType: 'image/png' });
+    expect(avatarRes.status).toBe(302);
+    expect(avatarRes.headers.location).toContain('/edit?avatar=1');
+
+    const cardRepo = new CardRepository(ctx.db);
+    const aliceUser = new UserRepository(ctx.db).findByUsername('alice2026')!;
+    const cardAfterUpload = cardRepo.findByUserId(aliceUser.id)!;
+    expect(cardAfterUpload.avatar_url).toMatch(/^\/media\/avatars\/avatar-[a-f0-9]{32}\.webp$/);
+
+    const mediaRes = await request(ctx.app).get(cardAfterUpload.avatar_url);
+    expect(mediaRes.status).toBe(200);
+    expect(mediaRes.headers['content-type']).toContain('image/webp');
+
+    const removeAvatarRes = await agent
+      .post('/edit/avatar')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .type('form')
+      .send({ _csrf: editCsrf, action: 'remove' });
+    expect(removeAvatarRes.status).toBe(302);
+    expect(removeAvatarRes.headers.location).toContain('/edit?avatar=removed');
+
+    const cardAfterRemove = cardRepo.findByUserId(aliceUser.id)!;
+    expect(cardAfterRemove.avatar_url).toBe('');
+
+    const deletedMediaRes = await request(ctx.app).get(cardAfterUpload.avatar_url);
+    expect(deletedMediaRes.status).toBe(404);
+
+    // 8. Unpublishing via editor form hides public card from visitors while owner can still preview
+    const unpublishRes = await agent
+      .post('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        full_name: 'Alice Draft',
+        theme: '#38bdf8',
+      });
+    expect(unpublishRes.status).toBe(302);
+
+    const visitorDraft = await request(ctx.app)
+      .get('/')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .set('Accept', 'application/json');
+    expect(visitorDraft.status).toBe(404);
+    expect(visitorDraft.body.error.code).toBe('CARD_UNPUBLISHED');
+
+    const ownerPreview = await agent.get('/').set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(ownerPreview.status).toBe(200);
+    expect(ownerPreview.text).toContain('Alice Draft');
+
+    // 9. Logout from tenant subdomain clears session
+    const logoutRes = await agent
+      .post('/logout')
+      .set('Host', 'alice2026.virtualcard.duckdns.org')
+      .type('form')
+      .send({ _csrf: editCsrf });
+    expect(logoutRes.status).toBe(302);
+
+    const postLogoutEdit = await agent
+      .get('/edit')
+      .set('Host', 'alice2026.virtualcard.duckdns.org');
+    expect(postLogoutEdit.status).toBe(302);
+    expect(postLogoutEdit.headers.location).toContain('/login');
+  });
 });

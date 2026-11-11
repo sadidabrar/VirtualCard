@@ -120,7 +120,11 @@ document.addEventListener('DOMContentLoaded', () => {
     { inputId: 'card-full-name', targetId: 'preview-name', fallback: 'Your Full Name' },
     { inputId: 'card-job-title', targetId: 'preview-role', fallback: 'Your Job Title' },
     { inputId: 'card-company', targetId: 'preview-company', fallback: 'Your Company' },
-    { inputId: 'card-tagline', targetId: 'preview-tagline', fallback: 'A brief tagline or bio appears here' },
+    {
+      inputId: 'card-tagline',
+      targetId: 'preview-tagline',
+      fallback: 'A brief tagline or bio appears here',
+    },
     { inputId: 'card-phone', targetId: 'preview-phone', fallback: 'Call Contact' },
     { inputId: 'card-public-email', targetId: 'preview-email', fallback: 'Email Contact' },
   ];
@@ -152,7 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const accentRadios = document.querySelectorAll('[data-accent-choice]');
   function applyAccent(hex) {
     document.documentElement.style.setProperty('--accent', hex);
-    document.documentElement.style.setProperty('--accent-glow', `color-mix(in srgb, ${hex} 40%, transparent)`);
+    document.documentElement.style.setProperty(
+      '--accent-glow',
+      `color-mix(in srgb, ${hex} 40%, transparent)`
+    );
   }
 
   accentRadios.forEach((radio) => {

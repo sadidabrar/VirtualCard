@@ -19,6 +19,7 @@ import { AuthService } from './services/authService.js';
 import { TenantService } from './services/tenantService.js';
 import { QrService } from './services/qrService.js';
 import { HealthService } from './services/healthService.js';
+import { CardService } from './services/cardService.js';
 
 import { HealthController } from './controllers/healthController.js';
 import { RootController } from './controllers/rootController.js';
@@ -93,6 +94,7 @@ export function createApp(deps: AppDependencies): Express {
   const tenantService = new TenantService(userRepo, cardRepo);
   const qrService = new QrService(env.BASE_DOMAIN);
   const healthService = new HealthService(healthRepo);
+  const cardService = new CardService(cardRepo, env.UPLOAD_DIR);
 
   const healthController = new HealthController(healthService);
   const rootController = new RootController(authService, qrService, env.BASE_DOMAIN);
@@ -103,7 +105,7 @@ export function createApp(deps: AppDependencies): Express {
     env.BASE_DOMAIN,
     isProd
   );
-  const tenantController = new TenantController(qrService, env.BASE_DOMAIN, isProd);
+  const tenantController = new TenantController(qrService, cardService, env.BASE_DOMAIN, isProd);
   const mediaController = new MediaController(env.UPLOAD_DIR);
 
   const rateLimiters = createRateLimiters();
@@ -177,7 +179,12 @@ export function createApp(deps: AppDependencies): Express {
   // 8. Tenant Subdomain Resolution & Routing
   app.use(tenantMiddleware);
 
-  const tenantRouter = createTenantRouter(tenantController, rateLimiters);
+  const tenantRouter = createTenantRouter(
+    tenantController,
+    rateLimiters,
+    authMiddleware.requireTenantOwner,
+    authController.logout
+  );
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.isTenantRequest) {
       return tenantRouter(req, res, next);

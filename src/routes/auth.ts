@@ -1,17 +1,8 @@
-import express, { type Router, type Request, type Response, type NextFunction } from 'express';
+import express, { type Router } from 'express';
 import type { AuthController } from '../controllers/authController.js';
 import type { AppRateLimiters } from '../middleware/rateLimit.js';
 import { verifyCsrf } from '../middleware/csrf.js';
-import { avatarUpload } from '../lib/avatar.js';
-
-function parseOptionalAvatar(req: Request, res: Response, next: NextFunction): void {
-  avatarUpload.single('avatar')(req, res, (err: unknown) => {
-    if (err) {
-      req.multerError = err instanceof Error ? err.message : 'Invalid avatar upload.';
-    }
-    next();
-  });
-}
+import { parseOptionalAvatar } from '../lib/avatar.js';
 
 export function createAuthRouter(
   controller: AuthController,

@@ -3,7 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Live Accent Switcher
   const accentButtons = document.querySelectorAll('[data-accent]');
-  accentButtons.forEach(btn => {
+  accentButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const hex = btn.getAttribute('data-accent');
       const rgb = btn.getAttribute('data-rgb');
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.setProperty('--accent-rgb', rgb);
       document.documentElement.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
 
-      accentButtons.forEach(b => b.style.outline = 'none');
+      accentButtons.forEach((b) => (b.style.outline = 'none'));
       btn.style.outline = `3px solid ${hex}`;
       btn.style.outlineOffset = '2px';
     });
@@ -66,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (inputTagline && cardTagline) {
     inputTagline.addEventListener('input', (e) => {
-      cardTagline.textContent = e.target.value || 'Scaling distributed cloud systems with elegant interfaces';
+      cardTagline.textContent =
+        e.target.value || 'Scaling distributed cloud systems with elegant interfaces';
     });
   }
 

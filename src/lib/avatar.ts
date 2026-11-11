@@ -1,3 +1,4 @@
+import type { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import crypto from 'crypto';
@@ -80,6 +81,15 @@ export const avatarUpload = multer({
     cb(null, true);
   },
 });
+
+export function parseOptionalAvatar(req: Request, res: Response, next: NextFunction): void {
+  avatarUpload.single('avatar')(req, res, (err: unknown) => {
+    if (err) {
+      req.multerError = err instanceof Error ? err.message : 'Invalid avatar upload.';
+    }
+    next();
+  });
+}
 
 export async function processAndSaveAvatar(
   file: Express.Multer.File,
