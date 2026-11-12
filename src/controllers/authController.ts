@@ -4,7 +4,12 @@ import type { QrService } from '../services/qrService.js';
 import type { CardRepository } from '../repositories/cardRepository.js';
 import { loginBodySchema, signupBodySchema } from '../validators/auth.js';
 import { ACCENT_PRESETS, sanitizeText } from '../lib/sanitize.js';
-import { getCanonicalTenantUrl, getClickableTenantHref } from '../lib/url.js';
+import {
+  applySessionCookieDomain,
+  getCanonicalTenantUrl,
+  getClickableTenantHref,
+  isBaseDomainRequest,
+} from '../lib/url.js';
 import { wantsJson } from '../lib/http.js';
 import { AppError } from '../types/errors.js';
 
@@ -16,19 +21,6 @@ export class AuthController {
     private readonly baseDomain: string,
     private readonly isProd: boolean
   ) {}
-
-  private applyCrossSubdomainCookie(req: Request): void {
-    const rawHost = (
-      (req.headers['x-forwarded-host'] as string) ||
-      req.headers.host ||
-      req.hostname ||
-      ''
-    ).toLowerCase();
-    const hostNoPort = rawHost.split(':')[0];
-    if (hostNoPort === this.baseDomain || hostNoPort.endsWith('.' + this.baseDomain)) {
-      req.session.cookie.domain = this.baseDomain;
-    }
-  }
 
   showSignup = (req: Request, res: Response): void => {
     const prefillUsername =
@@ -111,7 +103,7 @@ export class AuthController {
         req.session.username = username;
         req.session.role = 'owner';
         req.session.recentSignupUsername = username;
-        this.applyCrossSubdomainCookie(req);
+        applySessionCookieDomain(req, res, this.baseDomain);
 
         req.session.save(() => {
           if (wantsJson(req)) {
@@ -218,7 +210,7 @@ export class AuthController {
         req.session.userId = user.id;
         req.session.username = user.username;
         req.session.role = user.role;
-        this.applyCrossSubdomainCookie(req);
+        applySessionCookieDomain(req, res, this.baseDomain);
 
         req.session.save(() => {
           if (wantsJson(req)) {
@@ -247,7 +239,10 @@ export class AuthController {
 
   logout = (req: Request, res: Response): void => {
     req.session.destroy(() => {
-      res.clearCookie('vc_session');
+      res.clearCookie('vc_session', { path: '/' });
+      if (isBaseDomainRequest(req, this.baseDomain)) {
+        res.clearCookie('vc_session', { domain: this.baseDomain, path: '/' });
+      }
       if (wantsJson(req)) {
         res.json({ ok: true, data: { loggedOut: true } });
         return;

@@ -9,7 +9,7 @@ import type { Logger } from 'pino';
 
 import type { AppEnv } from './lib/env.js';
 import type { AppDatabase } from './db/index.js';
-import { getClickableTenantHref, getRootHref } from './lib/url.js';
+import { applySessionCookieDomain, getClickableTenantHref, getRootHref } from './lib/url.js';
 
 import { UserRepository } from './repositories/userRepository.js';
 import { CardRepository } from './repositories/cardRepository.js';
@@ -152,7 +152,11 @@ export function createApp(deps: AppDependencies): Express {
     })
   );
 
-  // 7. CSRF Token & Auth User Context
+  // 7. Consistent Cross-Subdomain Cookie Scope, CSRF Token & Auth User Context
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    applySessionCookieDomain(req, res, env.BASE_DOMAIN);
+    next();
+  });
   app.use(ensureCsrfToken);
   app.use(authMiddleware.attachCurrentUser);
   app.use((req: Request, res: Response, next: NextFunction) => {

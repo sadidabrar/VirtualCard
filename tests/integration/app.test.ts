@@ -753,4 +753,104 @@ describe('VirtualCard Backend Integration Tests', () => {
       fs.rmSync(prodUploadDir, { recursive: true, force: true });
     }
   });
+
+  it('scopes vc_session to baseDomain from first visit, clears it on subdomain logout, and heals duplicate cookies', async () => {
+    const extractDomainCookie = (headers: string[] | undefined): string => {
+      const match = (headers ?? []).find(
+        (c) => c.startsWith('vc_session=s%3A') && c.includes('Domain=virtualcard.duckdns.org')
+      );
+      if (!match) {
+        throw new Error(`Expected Domain=virtualcard.duckdns.org vc_session cookie, got: ${JSON.stringify(headers)}`);
+      }
+      return match.split(';')[0];
+    };
+
+    // 1. Initial GET /signup on root domain must already scope cookie to Domain=virtualcard.duckdns.org
+    const signupGet = await request(ctx.app).get('/signup').set('Host', 'virtualcard.duckdns.org');
+    expect(signupGet.status).toBe(200);
+    let sessionCookie = extractDomainCookie(signupGet.headers['set-cookie']);
+
+    const signupCsrf = extractCsrf(signupGet.text);
+    const signupRes = await request(ctx.app)
+      .post('/signup')
+      .set('Host', 'virtualcard.duckdns.org')
+      .set('Cookie', sessionCookie)
+      .field('_csrf', signupCsrf)
+      .field('username', 'cookieuser')
+      .field('email', 'cookieuser@example.com')
+      .field('password', 'CookiePass2026!')
+      .field('confirm_password', 'CookiePass2026!')
+      .field('full_name', 'Cookie Tester')
+      .field('job_title', 'Engineer')
+      .field('theme', '#38bdf8');
+    expect(signupRes.status).toBe(302);
+    sessionCookie = extractDomainCookie(signupRes.headers['set-cookie']);
+
+    // 2. Log out from tenant subdomain — must emit Domain=virtualcard.duckdns.org clearing cookie
+    const editGet = await request(ctx.app)
+      .get('/edit')
+      .set('Host', 'cookieuser.virtualcard.duckdns.org')
+      .set('Cookie', sessionCookie);
+    expect(editGet.status).toBe(200);
+    const editCsrf = extractCsrf(editGet.text);
+
+    const logoutRes = await request(ctx.app)
+      .post('/logout')
+      .set('Host', 'cookieuser.virtualcard.duckdns.org')
+      .set('Cookie', sessionCookie)
+      .type('form')
+      .send({ _csrf: editCsrf });
+    expect(logoutRes.status).toBe(302);
+    const logoutCookies = logoutRes.headers['set-cookie'] ?? [];
+    expect(
+      logoutCookies.some(
+        (c) => c.startsWith('vc_session=;') && c.includes('Domain=virtualcard.duckdns.org')
+      )
+    ).toBe(true);
+
+    // 3. Re-login on root domain after logout must succeed cleanly without 403 CSRF_INVALID
+    const loginGet = await request(ctx.app).get('/login').set('Host', 'virtualcard.duckdns.org');
+    expect(loginGet.status).toBe(200);
+    sessionCookie = extractDomainCookie(loginGet.headers['set-cookie']);
+    const loginCsrf = extractCsrf(loginGet.text);
+
+    const loginRes = await request(ctx.app)
+      .post('/login')
+      .set('Host', 'virtualcard.duckdns.org')
+      .set('Cookie', sessionCookie)
+      .type('form')
+      .send({
+        _csrf: loginCsrf,
+        identifier: 'cookieuser',
+        password: 'CookiePass2026!',
+      });
+    expect(loginRes.status).toBe(302);
+
+    // 4. Stale duplicate host+domain cookies sent on GET /login self-heal to a single Domain cookie
+    const dupGet = await request(ctx.app)
+      .get('/login')
+      .set('Host', 'virtualcard.duckdns.org')
+      .set('Cookie', 'vc_session=stale_host_sid; vc_session=stale_domain_sid');
+    expect(dupGet.status).toBe(200);
+    const dupSetCookies = dupGet.headers['set-cookie'] ?? [];
+    expect(
+      dupSetCookies.some(
+        (c) => c.startsWith('vc_session=;') && !c.includes('Domain=virtualcard.duckdns.org')
+      )
+    ).toBe(true);
+    const healedSidCookie = extractDomainCookie(dupSetCookies);
+    const healedCsrf = extractCsrf(dupGet.text);
+
+    const healedLogin = await request(ctx.app)
+      .post('/login')
+      .set('Host', 'virtualcard.duckdns.org')
+      .set('Cookie', healedSidCookie)
+      .type('form')
+      .send({
+        _csrf: healedCsrf,
+        identifier: 'cookieuser',
+        password: 'CookiePass2026!',
+      });
+    expect(healedLogin.status).toBe(302);
+  });
 });

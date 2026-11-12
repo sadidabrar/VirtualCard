@@ -61,6 +61,7 @@ declare module 'express-session' {
     username?: string;
     role?: 'owner' | 'master';
     recentSignupUsername?: string;
+    domainBound?: string;
   }
 }
 
