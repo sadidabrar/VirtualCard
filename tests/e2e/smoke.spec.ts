@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test';
 
+test.use({
+  launchOptions: {
+    args: [
+      '--host-resolver-rules=MAP virtualcard.duckdns.org 127.0.0.1,MAP *.virtualcard.duckdns.org 127.0.0.1',
+    ],
+  },
+});
+
 const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64'
@@ -115,4 +123,47 @@ test('E2E smoke: signup -> subdomain -> QR -> owner edit -> master suspend', asy
   // Verify suspended public subdomain now returns 404
   const suspendedCardResp = await page.goto(subdomainUrl);
   expect(suspendedCardResp?.status()).toBe(404);
+});
+
+test('cross-subdomain owner login redirect automatically navigates across subdomain without CSP block', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text());
+    }
+  });
+
+  const username = 'redirectowner';
+
+  // 1. Sign up on root domain
+  await page.goto('http://virtualcard.duckdns.org:3199/signup');
+  await page.fill('#signup-username', username);
+  await page.fill('#signup-email', 'redirectowner@example.com');
+  await page.fill('#signup-password', 'OwnerPass2026!');
+  await page.fill('#signup-confirm-password', 'OwnerPass2026!');
+  await page.click('#btn-next-step');
+  await page.fill('#card-full-name', 'Redirect Owner');
+  await page.fill('#card-job-title', 'Architect');
+  await page.getByRole('button', { name: /launch my virtual card/i }).click();
+  await expect(page).toHaveURL(/\/signup\/success$/);
+
+  // 2. Log out from tenant subdomain
+  await page.goto(`http://${username}.virtualcard.duckdns.org:3199/edit`);
+  await expect(page).toHaveTitle(/Edit Card \(@redirectowner\)/);
+  await page.getByRole('button', { name: /log out/i }).click();
+
+  // 3. Log in from root domain and verify automatic cross-origin redirect to subdomain /edit
+  await page.goto('http://virtualcard.duckdns.org:3199/login');
+  await page.fill('#login-identifier', username);
+  await page.fill('#login-password', 'OwnerPass2026!');
+  await page.getByRole('button', { name: /sign in/i }).click();
+
+  await expect(page).toHaveURL(`http://${username}.virtualcard.duckdns.org:3199/edit`);
+  await expect(page).toHaveTitle(/Edit Card \(@redirectowner\)/);
+  const fatalConsoleErrors = consoleErrors.filter(
+    (msg) => !msg.includes('Cross-Origin-Opener-Policy')
+  );
+  expect(fatalConsoleErrors).toEqual([]);
 });

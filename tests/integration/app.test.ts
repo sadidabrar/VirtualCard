@@ -728,6 +728,9 @@ describe('VirtualCard Backend Integration Tests', () => {
       const httpRes = await request(prodApp).get('/');
       expect(httpRes.status).toBe(200);
       expect(httpRes.headers['content-security-policy']).not.toContain('upgrade-insecure-requests');
+      expect(httpRes.headers['content-security-policy']).toContain(
+        "form-action 'self' virtualcard.duckdns.org *.virtualcard.duckdns.org"
+      );
 
       const cssRes = await request(prodApp).get('/css/glass.css');
       expect(cssRes.status).toBe(200);

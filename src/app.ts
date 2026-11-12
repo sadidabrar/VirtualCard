@@ -69,6 +69,17 @@ export function createApp(deps: AppDependencies): Express {
   app.use(createRequestLoggerMiddleware(logger));
 
   // 2. Security Headers
+  const formActionSources = [
+    "'self'",
+    env.BASE_DOMAIN,
+    `*.${env.BASE_DOMAIN}`,
+    `${env.BASE_DOMAIN}:*`,
+    `*.${env.BASE_DOMAIN}:*`,
+  ];
+  if (isDev) {
+    formActionSources.push('localhost:*', '*.localhost:*');
+  }
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -80,7 +91,7 @@ export function createApp(deps: AppDependencies): Express {
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
-          formAction: ["'self'"],
+          formAction: formActionSources,
           upgradeInsecureRequests: null,
         },
       },
