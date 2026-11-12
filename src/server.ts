@@ -1,6 +1,7 @@
 import { loadEnvOrExit } from './lib/env.js';
 import { createLogger } from './lib/logger.js';
 import { createDatabase, checkMigrationsUpToDate } from './db/index.js';
+import { terminateOcrWorker } from './lib/documentProcessor.js';
 import { createApp } from './app.js';
 
 const env = loadEnvOrExit();
@@ -59,13 +60,15 @@ function shutdown(signal: string): void {
     if (closeErr) {
       logger.error({ err: closeErr }, 'Error while closing HTTP server');
     }
-    try {
-      sqliteDb.close();
-      logger.info('SQLite database closed cleanly');
-    } catch (dbErr) {
-      logger.error({ err: dbErr }, 'Error closing SQLite database');
-    }
-    process.exit(closeErr ? 1 : 0);
+    void terminateOcrWorker().finally(() => {
+      try {
+        sqliteDb.close();
+        logger.info('SQLite database closed cleanly');
+      } catch (dbErr) {
+        logger.error({ err: dbErr }, 'Error closing SQLite database');
+      }
+      process.exit(closeErr ? 1 : 0);
+    });
   });
 }
 

@@ -3,7 +3,7 @@ import type { AdminUserWithCard, MasterDashboardMetrics } from '../types/domain.
 import type { MasterListQuery, MasterUpdateUserCardBody } from '../validators/master.js';
 import { buildSocialsJson } from '../lib/sanitize.js';
 import { hashPassword } from '../lib/password.js';
-import { deleteAvatarFile } from '../lib/avatar.js';
+import { deleteAvatarFile, deleteUserVaultFiles } from '../lib/avatar.js';
 import { buildMasterExportCsv } from '../lib/csv.js';
 import { ConflictError, NotFoundError, ValidationError } from '../types/errors.js';
 
@@ -199,6 +199,7 @@ export class MasterService {
     if (avatarUrl) {
       await deleteAvatarFile(avatarUrl, this.uploadDir);
     }
+    await deleteUserVaultFiles(targetUserId, this.uploadDir);
 
     return { deletedUsername };
   }

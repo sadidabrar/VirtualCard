@@ -6,10 +6,16 @@ import { updateCardBodySchema } from '../validators/card.js';
 import { AppError, NotFoundError, ValidationError } from '../types/errors.js';
 import {
   ACCENT_PRESETS,
+  EXTRA_SOCIAL_PLATFORM_OPTIONS,
+  buildGoogleMapsSearchUrl,
   formatWhatsAppUrl,
   getOrderedSocialFields,
+  parseExtraSocials,
+  parsePhoneEntries,
   parseSocials,
+  resolveExtraSocialHref,
   sanitizeHttpUrl,
+  sanitizeMapsUrl,
 } from '../lib/sanitize.js';
 import { getCanonicalTenantUrl, getClickableTenantHref } from '../lib/url.js';
 import { wantsJson } from '../lib/http.js';
@@ -47,6 +53,30 @@ export class TenantController {
     const websiteUrl = sanitizeHttpUrl(card.website);
     const whatsappUrl = formatWhatsAppUrl(card.whatsapp);
     const socials = parseSocials(card.socials);
+    const phoneEntries = parsePhoneEntries(card.phones_json, card.phone, card.whatsapp).map(
+      (entry, idx) => ({
+        ...entry,
+        index: idx,
+        whatsappUrl: entry.is_whatsapp ? formatWhatsAppUrl(entry.number) : '',
+        saveVcfHref: getClickableTenantHref(
+          username,
+          `/vcard?phone=${idx}`,
+          req,
+          this.baseDomain,
+          this.isProd
+        ),
+      })
+    );
+
+    const extraSocials = parseExtraSocials(card.extra_socials_json).map((entry) => ({
+      ...entry,
+      href: resolveExtraSocialHref(entry),
+    }));
+
+    const resolvedMapsUrl =
+      sanitizeMapsUrl(card.maps_url) ||
+      (card.address ? buildGoogleMapsSearchUrl(card.address) : '');
+
     const qrDataUrl = await this.qrService.getQrDataUrl(username, 180);
 
     const ogImageUrl = card.avatar_url
@@ -61,6 +91,9 @@ export class TenantController {
       tenant: username,
       card,
       socials,
+      phoneEntries,
+      extraSocials,
+      resolvedMapsUrl,
       websiteUrl,
       whatsappUrl,
       canonicalUrl,
@@ -78,6 +111,7 @@ export class TenantController {
       ),
       qrSvgHref: getClickableTenantHref(username, '/qr.svg', req, this.baseDomain, this.isProd),
       editHref: getClickableTenantHref(username, '/edit', req, this.baseDomain, this.isProd),
+      vaultHref: getClickableTenantHref(username, '/vault', req, this.baseDomain, this.isProd),
     });
   };
 
@@ -94,18 +128,24 @@ export class TenantController {
     const username = req.tenant!;
     const { card, errors = [], toastMessage = null, statusCode = 200 } = options;
     const orderedSocials = getOrderedSocialFields(card.socials);
+    const phoneEntries = parsePhoneEntries(card.phones_json, card.phone, card.whatsapp);
+    const extraSocials = parseExtraSocials(card.extra_socials_json);
     const qrDataUrl = await this.qrService.getQrDataUrl(username, 140);
 
     res.status(statusCode).render('editor', {
       tenant: username,
       card,
       orderedSocials,
+      phoneEntries,
+      extraSocials,
+      extraSocialPlatformOptions: EXTRA_SOCIAL_PLATFORM_OPTIONS,
       accentPresets: ACCENT_PRESETS,
       errors,
       toastMessage,
       canonicalUrl: getCanonicalTenantUrl(username, this.baseDomain),
       publicCardHref: getClickableTenantHref(username, '/', req, this.baseDomain, this.isProd),
       editFormAction: getClickableTenantHref(username, '/edit', req, this.baseDomain, this.isProd),
+      vaultHref: getClickableTenantHref(username, '/vault', req, this.baseDomain, this.isProd),
       avatarFormAction: getClickableTenantHref(
         username,
         '/edit/avatar',
@@ -165,8 +205,15 @@ export class TenantController {
         company: typeof req.body?.company === 'string' ? req.body.company : card.company,
         tagline: typeof req.body?.tagline === 'string' ? req.body.tagline : card.tagline,
         address: typeof req.body?.address === 'string' ? req.body.address : card.address,
+        maps_url: typeof req.body?.maps_url === 'string' ? req.body.maps_url : card.maps_url,
         phone: typeof req.body?.phone === 'string' ? req.body.phone : card.phone,
         whatsapp: typeof req.body?.whatsapp === 'string' ? req.body.whatsapp : card.whatsapp,
+        phones_json:
+          typeof req.body?.phones_json === 'string' ? req.body.phones_json : card.phones_json,
+        extra_socials_json:
+          typeof req.body?.extra_socials_json === 'string'
+            ? req.body.extra_socials_json
+            : card.extra_socials_json,
         public_email:
           typeof req.body?.public_email === 'string' ? req.body.public_email : card.public_email,
         website: typeof req.body?.website === 'string' ? req.body.website : card.website,
@@ -272,9 +319,16 @@ export class TenantController {
       throw new NotFoundError('Card is unpublished.', 'CARD_UNPUBLISHED');
     }
 
-    const vcf = buildVCardString(username, card, this.baseDomain);
+    let phoneIndex: number | undefined;
+    if (typeof req.query.phone === 'string' && /^\d+$/.test(req.query.phone)) {
+      phoneIndex = Number.parseInt(req.query.phone, 10);
+    }
+
+    const vcf = buildVCardString(username, card, this.baseDomain, { phoneIndex });
+    const filename =
+      phoneIndex !== undefined ? `${username}-phone-${phoneIndex + 1}.vcf` : `${username}.vcf`;
     res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${username}.vcf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(vcf);
   };

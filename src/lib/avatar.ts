@@ -17,6 +17,15 @@ export function resolveUploadDir(uploadDir = 'data/uploads'): string {
   return dir;
 }
 
+export function resolveVaultUploadDir(userId: number, uploadDir = 'data/uploads'): string {
+  const base = resolveUploadDir(uploadDir);
+  const dir = path.join(base, '_vault', String(userId));
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 export function hasValidImageMagicBytes(buf: Buffer): boolean {
   if (!buf || buf.length < 12) return false;
 
@@ -62,6 +71,32 @@ export function hasValidImageMagicBytes(buf: Buffer): boolean {
   return false;
 }
 
+export function hasValidPdfMagicBytes(buf: Buffer): boolean {
+  if (!buf || buf.length < 5) return false;
+  return (
+    buf[0] === 0x25 && // %
+    buf[1] === 0x50 && // P
+    buf[2] === 0x44 && // D
+    buf[3] === 0x46 && // F
+    buf[4] === 0x2d // -
+  );
+}
+
+export async function compressImageToWebp(
+  buf: Buffer,
+  options: { width: number; height: number; fit: 'cover' | 'inside'; quality: number }
+): Promise<Buffer> {
+  return sharp(buf)
+    .rotate()
+    .resize(options.width, options.height, {
+      fit: options.fit,
+      position: 'centre',
+      withoutEnlargement: options.fit === 'inside',
+    })
+    .webp({ quality: options.quality, effort: 5 })
+    .toBuffer();
+}
+
 export const avatarUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -103,11 +138,12 @@ export async function processAndSaveAvatar(
     );
   }
 
-  const processedBuffer = await sharp(file.buffer)
-    .rotate()
-    .resize(512, 512, { fit: 'cover', position: 'centre' })
-    .webp({ quality: 88 })
-    .toBuffer();
+  const processedBuffer = await compressImageToWebp(file.buffer, {
+    width: 512,
+    height: 512,
+    fit: 'cover',
+    quality: 82,
+  });
 
   const filename = `avatar-${crypto.randomBytes(16).toString('hex')}.webp`;
   const destDir = resolveUploadDir(uploadDir);
@@ -129,6 +165,20 @@ export async function deleteAvatarFile(
   try {
     if (fs.existsSync(fullPath)) {
       await fs.promises.unlink(fullPath);
+    }
+  } catch {
+    // non-fatal cleanup
+  }
+}
+
+export async function deleteUserVaultFiles(
+  userId: number,
+  uploadDir = 'data/uploads'
+): Promise<void> {
+  const dir = path.join(resolveUploadDir(uploadDir), '_vault', String(userId));
+  try {
+    if (fs.existsSync(dir)) {
+      await fs.promises.rm(dir, { recursive: true, force: true });
     }
   } catch {
     // non-fatal cleanup

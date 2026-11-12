@@ -6,7 +6,7 @@
     </a>
 
     <div class="glass-nav-links">
-      <a href="/demo" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Design Demo</a>
+      <a href="/demo" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Live Preview</a>
 
       <% if (currentUser) { %>
         <% if (currentUser.role === 'master') { %>
@@ -14,6 +14,7 @@
         <% } %>
         <a href="<%= myCardHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">My Card</a>
         <a href="<%= myEditorHref %>" class="glass-pill glass-btn-primary" style="padding: 0.45rem 1rem; font-size: 0.85rem;">Edit Card</a>
+        <a href="<%= myVaultHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Private Vault</a>
         <form method="POST" action="/logout" style="display: inline; margin: 0;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Log Out</button>

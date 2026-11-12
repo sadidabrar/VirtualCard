@@ -233,4 +233,413 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncSocialOrderAndPreview();
   }
+
+  // =========================================================================
+  // Google Maps Link Builder Helper
+  // =========================================================================
+  const generateMapsBtn = document.getElementById('generate-maps-url-btn');
+  const addressInput = document.getElementById('edit-address');
+  const mapsUrlInput = document.getElementById('edit-maps-url');
+  if (generateMapsBtn && addressInput && mapsUrlInput) {
+    generateMapsBtn.addEventListener('click', () => {
+      const addr = addressInput.value.trim();
+      if (!addr) {
+        addressInput.focus();
+        return;
+      }
+      mapsUrlInput.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+      mapsUrlInput.focus();
+    });
+  }
+
+  // =========================================================================
+  // Multi-Phone Manager (#phone-rows-container <-> #phones-json-input)
+  // =========================================================================
+  const phoneRowsContainer = document.getElementById('phone-rows-container');
+  const phonesJsonInput = document.getElementById('phones-json-input');
+  const addPhoneRowBtn = document.getElementById('add-phone-row-btn');
+  const primaryPhoneInput = document.getElementById('edit-phone');
+  const whatsappInput = document.getElementById('edit-whatsapp');
+  const previewPhoneEl = document.getElementById('preview-phone');
+  const previewExtraPhonesEl = document.getElementById('preview-extra-phones');
+
+  function makeTempId(prefix) {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return `${prefix}-${window.crypto.randomUUID().slice(0, 8)}`;
+    }
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+
+  function createTrashIconSvg() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '15');
+    svg.setAttribute('height', '15');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.innerHTML =
+      '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
+    return svg;
+  }
+
+  if (phoneRowsContainer && phonesJsonInput) {
+    let phoneEntries = [];
+    try {
+      const parsed = JSON.parse(phoneRowsContainer.dataset.initialPhones || '[]');
+      if (Array.isArray(parsed)) {
+        phoneEntries = parsed.map((entry, idx) => ({
+          id: String(entry.id || (idx === 0 ? 'primary' : makeTempId('ph'))),
+          label: String(entry.label || (entry.is_whatsapp ? 'WhatsApp' : 'Mobile')),
+          number: String(entry.number || ''),
+          is_whatsapp: Boolean(entry.is_whatsapp),
+        }));
+      }
+    } catch {
+      phoneEntries = [];
+    }
+
+    function syncPhonesHiddenAndPreview() {
+      const cleaned = phoneEntries
+        .map((p) => ({
+          id: p.id,
+          label: (p.label || '').trim() || (p.is_whatsapp ? 'WhatsApp' : 'Phone'),
+          number: (p.number || '').trim(),
+          is_whatsapp: Boolean(p.is_whatsapp),
+        }))
+        .filter((p) => p.number.length > 0);
+
+      phonesJsonInput.value = JSON.stringify(cleaned);
+
+      if (previewPhoneEl) {
+        const firstNonEmpty = cleaned.find((p) => !p.is_whatsapp) || cleaned[0];
+        previewPhoneEl.textContent = (firstNonEmpty && firstNonEmpty.number) || 'Call Contact';
+      }
+      if (previewExtraPhonesEl) {
+        previewExtraPhonesEl.textContent =
+          cleaned.length > 1
+            ? `+${cleaned.length - 1} additional number${cleaned.length - 1 === 1 ? '' : 's'} · Direct Save-to-Phone enabled`
+            : '';
+      }
+    }
+
+    function renderPhoneRows() {
+      phoneRowsContainer.textContent = '';
+      if (phoneEntries.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'glass-label-sub';
+        hint.style.margin = '0.25rem 0';
+        hint.textContent = 'No labeled numbers yet. Enter your primary phone above or click "Add Phone Number".';
+        phoneRowsContainer.appendChild(hint);
+        syncPhonesHiddenAndPreview();
+        return;
+      }
+
+      phoneEntries.forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.className = 'dynamic-row dynamic-row-grid-phone row-slide-in';
+        row.dataset.phoneRowId = entry.id;
+
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.className = 'glass-input';
+        labelInput.placeholder = 'Label (e.g. Office)';
+        labelInput.maxLength = 30;
+        labelInput.value = entry.label;
+        labelInput.setAttribute('aria-label', `Phone ${index + 1} label`);
+        labelInput.addEventListener('input', () => {
+          entry.label = labelInput.value;
+          syncPhonesHiddenAndPreview();
+        });
+
+        const numInput = document.createElement('input');
+        numInput.type = 'tel';
+        numInput.className = 'glass-input';
+        numInput.placeholder = '+880 1711 000000';
+        numInput.maxLength = 32;
+        numInput.value = entry.number;
+        numInput.setAttribute('aria-label', `Phone ${index + 1} number`);
+        numInput.addEventListener('input', () => {
+          entry.number = numInput.value;
+          if (entry.id === 'primary' && primaryPhoneInput) {
+            primaryPhoneInput.value = numInput.value;
+          } else if (entry.id === 'whatsapp' && whatsappInput) {
+            whatsappInput.value = numInput.value;
+          }
+          syncPhonesHiddenAndPreview();
+        });
+
+        const waWrap = document.createElement('label');
+        waWrap.className = 'compact-check-label';
+        const waCheck = document.createElement('input');
+        waCheck.type = 'checkbox';
+        waCheck.checked = Boolean(entry.is_whatsapp);
+        waCheck.addEventListener('change', () => {
+          entry.is_whatsapp = waCheck.checked;
+          syncPhonesHiddenAndPreview();
+        });
+        const waText = document.createElement('span');
+        waText.textContent = 'WhatsApp';
+        waWrap.appendChild(waCheck);
+        waWrap.appendChild(waText);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'icon-btn-danger';
+        removeBtn.setAttribute('aria-label', `Remove phone ${entry.label || index + 1}`);
+        removeBtn.appendChild(createTrashIconSvg());
+        removeBtn.addEventListener('click', () => {
+          phoneEntries.splice(index, 1);
+          if (entry.id === 'primary' && primaryPhoneInput) {
+            primaryPhoneInput.value = '';
+          } else if (entry.id === 'whatsapp' && whatsappInput) {
+            whatsappInput.value = '';
+          }
+          renderPhoneRows();
+        });
+
+        row.appendChild(labelInput);
+        row.appendChild(numInput);
+        row.appendChild(waWrap);
+        row.appendChild(removeBtn);
+        phoneRowsContainer.appendChild(row);
+      });
+
+      syncPhonesHiddenAndPreview();
+    }
+
+    if (addPhoneRowBtn) {
+      addPhoneRowBtn.addEventListener('click', () => {
+        phoneEntries.push({
+          id: makeTempId('ph'),
+          label: phoneEntries.length === 0 ? 'Mobile' : 'Office',
+          number: '',
+          is_whatsapp: false,
+        });
+        renderPhoneRows();
+        const rows = phoneRowsContainer.querySelectorAll('.dynamic-row');
+        const lastRow = rows[rows.length - 1];
+        const firstInput = lastRow && lastRow.querySelector('input[type="text"]');
+        if (firstInput) firstInput.focus();
+      });
+    }
+
+    if (primaryPhoneInput) {
+      primaryPhoneInput.addEventListener('input', () => {
+        const val = primaryPhoneInput.value;
+        let primaryEntry = phoneEntries.find((p) => p.id === 'primary') || phoneEntries.find((p) => !p.is_whatsapp);
+        if (!primaryEntry && val.trim()) {
+          primaryEntry = { id: 'primary', label: 'Mobile', number: val, is_whatsapp: false };
+          phoneEntries.unshift(primaryEntry);
+          renderPhoneRows();
+          return;
+        }
+        if (primaryEntry) {
+          primaryEntry.number = val;
+          const rowEl = phoneRowsContainer.querySelector(`[data-phone-row-id="${CSS.escape(primaryEntry.id)}"] input[type="tel"]`);
+          if (rowEl && document.activeElement !== rowEl) {
+            rowEl.value = val;
+          }
+          syncPhonesHiddenAndPreview();
+        }
+      });
+    }
+
+    if (whatsappInput) {
+      whatsappInput.addEventListener('input', () => {
+        const val = whatsappInput.value;
+        let waEntry = phoneEntries.find((p) => p.id === 'whatsapp') || phoneEntries.find((p) => p.is_whatsapp);
+        if (!waEntry && val.trim()) {
+          waEntry = { id: 'whatsapp', label: 'WhatsApp', number: val, is_whatsapp: true };
+          phoneEntries.push(waEntry);
+          renderPhoneRows();
+          return;
+        }
+        if (waEntry) {
+          waEntry.number = val;
+          const rowEl = phoneRowsContainer.querySelector(`[data-phone-row-id="${CSS.escape(waEntry.id)}"] input[type="tel"]`);
+          if (rowEl && document.activeElement !== rowEl) {
+            rowEl.value = val;
+          }
+          syncPhonesHiddenAndPreview();
+        }
+      });
+    }
+
+    renderPhoneRows();
+  }
+
+  // =========================================================================
+  // Additional Social Accounts & Messaging Numbers
+  // =========================================================================
+  const extraSocialsContainer = document.getElementById('extra-socials-container');
+  const extraSocialsJsonInput = document.getElementById('extra-socials-json-input');
+  const addExtraSocialBtn = document.getElementById('add-extra-social-btn');
+  const previewExtraSocialsEl = document.getElementById('preview-extra-socials-pills');
+
+  if (extraSocialsContainer && extraSocialsJsonInput) {
+    let extraSocials = [];
+    let platformOptions = [];
+    try {
+      const parsedSocials = JSON.parse(extraSocialsContainer.dataset.initialExtraSocials || '[]');
+      if (Array.isArray(parsedSocials)) {
+        extraSocials = parsedSocials.map((s) => ({
+          id: String(s.id || makeTempId('soc')),
+          platform: String(s.platform || 'telegram'),
+          label: String(s.label || ''),
+          value: String(s.value || ''),
+          kind: String(s.kind || 'handle'),
+        }));
+      }
+    } catch {
+      extraSocials = [];
+    }
+
+    try {
+      const parsedOpts = JSON.parse(extraSocialsContainer.dataset.platformOptions || '[]');
+      if (Array.isArray(parsedOpts)) {
+        platformOptions = parsedOpts;
+      }
+    } catch {
+      platformOptions = [];
+    }
+
+    function findPlatformMeta(platformId) {
+      return platformOptions.find((opt) => opt.id === platformId) || {
+        id: platformId,
+        label: 'Custom',
+        defaultKind: 'handle',
+        placeholder: 'URL, @handle, or number',
+      };
+    }
+
+    function syncExtraSocialsHiddenAndPreview() {
+      const cleaned = extraSocials
+        .map((s) => {
+          const meta = findPlatformMeta(s.platform);
+          return {
+            id: s.id,
+            platform: s.platform || 'custom',
+            label: (s.label || '').trim() || meta.label,
+            value: (s.value || '').trim(),
+            kind: s.kind || meta.defaultKind || 'handle',
+          };
+        })
+        .filter((s) => s.value.length > 0);
+
+      extraSocialsJsonInput.value = JSON.stringify(cleaned);
+
+      if (previewExtraSocialsEl) {
+        previewExtraSocialsEl.textContent = '';
+        cleaned.forEach((item) => {
+          const pill = document.createElement('span');
+          pill.className = 'glass-badge';
+          pill.dataset.previewExtra = '1';
+          pill.textContent = item.label || item.platform;
+          previewExtraSocialsEl.appendChild(pill);
+        });
+      }
+    }
+
+    function renderExtraSocialRows() {
+      extraSocialsContainer.textContent = '';
+      if (extraSocials.length === 0) {
+        const hint = document.createElement('p');
+        hint.className = 'glass-label-sub';
+        hint.style.margin = '0.25rem 0';
+        hint.textContent = 'Add Telegram, Viber, IMO, TikTok, Discord, Messenger, or hotline accounts here.';
+        extraSocialsContainer.appendChild(hint);
+        syncExtraSocialsHiddenAndPreview();
+        return;
+      }
+
+      extraSocials.forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.className = 'dynamic-row dynamic-row-grid-social row-slide-in';
+
+        const select = document.createElement('select');
+        select.className = 'glass-input glass-select';
+        select.setAttribute('aria-label', `Additional account ${index + 1} platform`);
+        platformOptions.forEach((opt) => {
+          const optionEl = document.createElement('option');
+          optionEl.value = opt.id;
+          optionEl.textContent = opt.label;
+          if (opt.id === entry.platform) optionEl.selected = true;
+          select.appendChild(optionEl);
+        });
+
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.className = 'glass-input';
+        labelInput.placeholder = 'Label (optional)';
+        labelInput.maxLength = 40;
+        labelInput.value = entry.label;
+        labelInput.setAttribute('aria-label', `Additional account ${index + 1} label`);
+
+        const valInput = document.createElement('input');
+        valInput.type = 'text';
+        valInput.className = 'glass-input';
+        valInput.maxLength = 300;
+        valInput.value = entry.value;
+        valInput.placeholder = findPlatformMeta(entry.platform).placeholder;
+        valInput.setAttribute('aria-label', `Additional account ${index + 1} value`);
+
+        select.addEventListener('change', () => {
+          entry.platform = select.value;
+          const meta = findPlatformMeta(entry.platform);
+          entry.kind = meta.defaultKind || 'handle';
+          valInput.placeholder = meta.placeholder;
+          syncExtraSocialsHiddenAndPreview();
+        });
+
+        labelInput.addEventListener('input', () => {
+          entry.label = labelInput.value;
+          syncExtraSocialsHiddenAndPreview();
+        });
+
+        valInput.addEventListener('input', () => {
+          entry.value = valInput.value;
+          syncExtraSocialsHiddenAndPreview();
+        });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'icon-btn-danger';
+        removeBtn.setAttribute('aria-label', `Remove additional account ${index + 1}`);
+        removeBtn.appendChild(createTrashIconSvg());
+        removeBtn.addEventListener('click', () => {
+          extraSocials.splice(index, 1);
+          renderExtraSocialRows();
+        });
+
+        row.appendChild(select);
+        row.appendChild(labelInput);
+        row.appendChild(valInput);
+        row.appendChild(removeBtn);
+        extraSocialsContainer.appendChild(row);
+      });
+
+      syncExtraSocialsHiddenAndPreview();
+    }
+
+    if (addExtraSocialBtn) {
+      addExtraSocialBtn.addEventListener('click', () => {
+        const defaultOpt = platformOptions[1] || platformOptions[0] || { id: 'telegram', defaultKind: 'handle', label: 'Telegram' };
+        extraSocials.push({
+          id: makeTempId('soc'),
+          platform: defaultOpt.id,
+          label: '',
+          value: '',
+          kind: defaultOpt.defaultKind || 'handle',
+        });
+        renderExtraSocialRows();
+        const rows = extraSocialsContainer.querySelectorAll('.dynamic-row');
+        const lastRow = rows[rows.length - 1];
+        const valueEl = lastRow && lastRow.querySelectorAll('input')[1];
+        if (valueEl) valueEl.focus();
+      });
+    }
+
+    renderExtraSocialRows();
+  }
 });

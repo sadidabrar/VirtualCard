@@ -18,7 +18,7 @@ test('E2E smoke: signup -> subdomain -> QR -> owner edit -> master suspend', asy
 
   // 1. Landing page -> Signup
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /create your own/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /one smart card/i })).toBeVisible();
   await page
     .getByRole('link', { name: /get started|create.*card/i })
     .first()

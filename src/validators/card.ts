@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { hexColorSchema, optionalEmailSchema, optionalHttpUrlSchema } from './common.js';
-import { ALLOWED_SOCIAL_PLATFORMS } from '../lib/sanitize.js';
+import {
+  ALLOWED_SOCIAL_PLATFORMS,
+  parseExtraSocials,
+  parsePhoneEntries,
+  serializeExtraSocials,
+  serializePhoneEntries,
+} from '../lib/sanitize.js';
 
 const checkboxBoolean = z
   .union([z.boolean(), z.string()])
@@ -16,12 +22,31 @@ const socialOrderSchema = z
     return rawList.map((s) => s.trim().toLowerCase()).filter((s) => allowedSet.has(s));
   });
 
+const phonesJsonFieldSchema = z
+  .union([z.string(), z.array(z.unknown())])
+  .optional()
+  .transform((val) => {
+    if (typeof val === 'undefined') return undefined;
+    const rawJson = typeof val === 'string' ? val : JSON.stringify(val);
+    return serializePhoneEntries(parsePhoneEntries(rawJson));
+  });
+
+const extraSocialsJsonFieldSchema = z
+  .union([z.string(), z.array(z.unknown())])
+  .optional()
+  .transform((val) => {
+    if (typeof val === 'undefined') return undefined;
+    const rawJson = typeof val === 'string' ? val : JSON.stringify(val);
+    return serializeExtraSocials(parseExtraSocials(rawJson));
+  });
+
 export const updateCardBodySchema = z.object({
   full_name: z.string().trim().min(2, 'Full Name is required (at least 2 characters).').max(100),
   job_title: z.string().trim().max(100).optional().default(''),
   company: z.string().trim().max(100).optional().default(''),
   tagline: z.string().trim().max(200).optional().default(''),
   address: z.string().trim().max(200).optional().default(''),
+  maps_url: optionalHttpUrlSchema,
   phone: z
     .string()
     .trim()
@@ -36,6 +61,7 @@ export const updateCardBodySchema = z.object({
     .optional()
     .default('')
     .transform((v) => v.replace(/[^\d+\-\s().]/g, '').trim()),
+  phones_json: phonesJsonFieldSchema,
   public_email: optionalEmailSchema,
   website: optionalHttpUrlSchema,
   theme: hexColorSchema.optional().default('#38bdf8'),
@@ -48,6 +74,7 @@ export const updateCardBodySchema = z.object({
   social_telegram: optionalHttpUrlSchema,
   social_youtube: optionalHttpUrlSchema,
   social_order: socialOrderSchema,
+  extra_socials_json: extraSocialsJsonFieldSchema,
 });
 
 export type UpdateCardBody = z.infer<typeof updateCardBodySchema>;

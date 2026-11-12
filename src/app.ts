@@ -14,6 +14,7 @@ import { applySessionCookieDomain, getClickableTenantHref, getRootHref } from '.
 import { UserRepository } from './repositories/userRepository.js';
 import { CardRepository } from './repositories/cardRepository.js';
 import { HealthRepository } from './repositories/healthRepository.js';
+import { VaultRepository } from './repositories/vaultRepository.js';
 
 import { AuthService } from './services/authService.js';
 import { TenantService } from './services/tenantService.js';
@@ -21,6 +22,7 @@ import { QrService } from './services/qrService.js';
 import { HealthService } from './services/healthService.js';
 import { CardService } from './services/cardService.js';
 import { MasterService } from './services/masterService.js';
+import { VaultService } from './services/vaultService.js';
 
 import { HealthController } from './controllers/healthController.js';
 import { RootController } from './controllers/rootController.js';
@@ -28,6 +30,7 @@ import { AuthController } from './controllers/authController.js';
 import { TenantController } from './controllers/tenantController.js';
 import { MediaController } from './controllers/mediaController.js';
 import { MasterController } from './controllers/masterController.js';
+import { VaultController } from './controllers/vaultController.js';
 
 import { createRequestLoggerMiddleware } from './middleware/requestId.js';
 import { createRateLimiters } from './middleware/rateLimit.js';
@@ -104,6 +107,7 @@ export function createApp(deps: AppDependencies): Express {
   const userRepo = new UserRepository(db);
   const cardRepo = new CardRepository(db);
   const healthRepo = new HealthRepository(db, sqliteDb);
+  const vaultRepo = new VaultRepository(db);
 
   const authService = new AuthService(userRepo, env.UPLOAD_DIR);
   const tenantService = new TenantService(userRepo, cardRepo);
@@ -111,6 +115,7 @@ export function createApp(deps: AppDependencies): Express {
   const healthService = new HealthService(healthRepo);
   const cardService = new CardService(cardRepo, env.UPLOAD_DIR);
   const masterService = new MasterService(userRepo, env.BASE_DOMAIN, env.UPLOAD_DIR);
+  const vaultService = new VaultService(vaultRepo, env.UPLOAD_DIR);
 
   const healthController = new HealthController(healthService);
   const rootController = new RootController(authService, qrService, env.BASE_DOMAIN);
@@ -122,6 +127,7 @@ export function createApp(deps: AppDependencies): Express {
     isProd
   );
   const tenantController = new TenantController(qrService, cardService, env.BASE_DOMAIN, isProd);
+  const vaultController = new VaultController(vaultService, env.BASE_DOMAIN, isProd);
   const mediaController = new MediaController(env.UPLOAD_DIR);
   const masterController = new MasterController(masterService, qrService, env.BASE_DOMAIN, isProd);
 
@@ -137,8 +143,8 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/media', createMediaRouter(mediaController));
 
   // 6. Body Parsing & Persistent SQLite Session Store
-  app.use(express.urlencoded({ extended: true }));
-  app.use(express.json());
+  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+  app.use(express.json({ limit: '2mb' }));
 
   const SQLiteStore = SQLiteStoreInit(session);
   app.use(
@@ -190,9 +196,17 @@ export function createApp(deps: AppDependencies): Express {
         env.BASE_DOMAIN,
         isProd
       );
+      res.locals.myVaultHref = getClickableTenantHref(
+        req.currentUser.username,
+        '/vault',
+        req,
+        env.BASE_DOMAIN,
+        isProd
+      );
     } else {
       res.locals.myCardHref = res.locals.rootHomeHref;
       res.locals.myEditorHref = res.locals.rootLoginHref;
+      res.locals.myVaultHref = res.locals.rootLoginHref;
     }
     next();
   });
@@ -202,6 +216,7 @@ export function createApp(deps: AppDependencies): Express {
 
   const tenantRouter = createTenantRouter(
     tenantController,
+    vaultController,
     rateLimiters,
     authMiddleware.requireTenantOwner,
     authController.logout

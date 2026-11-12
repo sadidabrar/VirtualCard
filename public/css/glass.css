@@ -68,11 +68,11 @@
   --radius-xl: 32px;
   --radius-pill: 9999px;
 
-  /* Motion Tokens (Max UI animation budget: <= 350ms) */
-  --motion-instant: 80ms cubic-bezier(0.16, 1, 0.3, 1);
-  --motion-fast: 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  --motion-base: 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  --motion-smooth: 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Motion Tokens (Snappy spring-deceleration feel) */
+  --motion-instant: 60ms cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-base: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-smooth: 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* --- Base Reset & Typography --- */
@@ -609,24 +609,39 @@ p {
   z-index: 1;
 }
 
-/* 9. Entrance Animations (staggered, subtle drift) */
+/* 9. Entrance Animations (snappy GPU-accelerated reveal) */
 .glass-enter {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translate3d(0, 10px, 0) scale(0.992);
   animation: glassEnter var(--motion-smooth) forwards;
 }
 
-.delay-1 { animation-delay: 50ms; }
-.delay-2 { animation-delay: 100ms; }
-.delay-3 { animation-delay: 150ms; }
-.delay-4 { animation-delay: 200ms; }
-.delay-5 { animation-delay: 250ms; }
+.delay-1 { animation-delay: 25ms; }
+.delay-2 { animation-delay: 55ms; }
+.delay-3 { animation-delay: 85ms; }
+.delay-4 { animation-delay: 115ms; }
+.delay-5 { animation-delay: 145ms; }
 
 @keyframes glassEnter {
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
+}
+
+@keyframes rowSlideIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.anim-row-in {
+  animation: rowSlideIn var(--motion-base) forwards;
 }
 
 /* 10. Sticky Glass Navigation */
@@ -1504,6 +1519,460 @@ p {
 
 .glass-modal[open] {
   animation: glassEnter var(--motion-fast) forwards;
+}
+
+/* ==========================================================================
+   WORKSPACE TABS, MULTI-PHONE, EXTRA SOCIALS & PRIVATE VAULT SYSTEM
+   ========================================================================== */
+
+.workspace-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: rgba(12, 15, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.48rem 0.95rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: background var(--motion-fast), color var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.workspace-tab:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.workspace-tab.is-active {
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 70%, #1e40af) 100%);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  box-shadow: 0 4px 14px -2px var(--accent-glow);
+}
+
+/* Dynamic Multi-Row Builders (Editor & Vault) */
+.dynamic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dynamic-row {
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast);
+}
+
+.dynamic-row:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.dynamic-row-grid-phone {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .dynamic-row-grid-phone {
+    grid-template-columns: minmax(110px, 0.9fr) minmax(140px, 1.3fr) auto auto;
+  }
+}
+
+.dynamic-row-grid-social {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .dynamic-row-grid-social {
+    grid-template-columns: minmax(130px, 1fr) minmax(110px, 0.9fr) minmax(160px, 1.4fr) auto;
+  }
+}
+
+.compact-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.icon-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  background: rgba(244, 63, 94, 0.1);
+  color: #fda4af;
+  cursor: pointer;
+  transition: transform var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.icon-btn-danger:hover {
+  background: rgba(244, 63, 94, 0.24);
+  border-color: rgba(244, 63, 94, 0.55);
+  transform: scale(1.05);
+}
+
+/* Public Card Multi-Phone Directory & Extra Socials */
+.vcard-phone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  margin-top: 0.2rem;
+}
+
+.vcard-phone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast);
+}
+
+.vcard-phone-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.25));
+  background: rgba(255, 255, 255, 0.075);
+  transform: translateY(-1px);
+}
+
+.vcard-phone-meta {
+  min-width: 0;
+  flex: 1 1 140px;
+}
+
+.vcard-phone-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.vcard-phone-num {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.vcard-phone-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.mini-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.34rem 0.62rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: transform var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.mini-action-pill:hover {
+  background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.1));
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.mini-action-pill-accent {
+  background: color-mix(in srgb, var(--accent) 18%, rgba(14, 18, 28, 0.8));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: #e0f2fe;
+}
+
+.vcard-extra-socials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.vcard-extra-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: transform var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
+}
+
+.vcard-extra-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.08));
+  transform: translateY(-1px);
+}
+
+/* Private Zero-Knowledge Vault UI */
+.vault-shield-card {
+  max-width: 520px;
+  margin: 2rem auto 4rem;
+  text-align: center;
+}
+
+.vault-shield-icon {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 1.25rem;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.18));
+  color: var(--accent);
+  box-shadow: 0 0 28px var(--accent-glow);
+}
+
+.vault-search-panel {
+  padding: 1.15rem 1.35rem;
+  margin-bottom: 1.5rem;
+}
+
+.vault-search-row {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.vault-search-input-wrap {
+  position: relative;
+  flex: 1 1 260px;
+}
+
+.vault-search-input-wrap svg {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.vault-search-input-wrap .glass-input {
+  padding-left: 2.5rem;
+}
+
+.vault-filter-pills {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.vault-filter-btn {
+  padding: 0.34rem 0.78rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), transform var(--motion-fast);
+}
+
+.vault-filter-btn:hover,
+.vault-filter-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 20%, rgba(16, 20, 30, 0.9));
+  border-color: var(--accent);
+  color: var(--text-main);
+}
+
+.vault-search-results {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.vault-search-hit {
+  display: block;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(10, 14, 24, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
+}
+
+.vault-search-hit:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, rgba(14, 18, 28, 0.92));
+  transform: translateX(3px);
+}
+
+.vault-highlight {
+  background: color-mix(in srgb, var(--accent) 36%, #facc15 24%);
+  color: #ffffff;
+  padding: 0 0.22rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.vault-doc-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .vault-doc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.vault-doc-card {
+  padding: 1.15rem;
+  border-radius: var(--radius-lg);
+  background: rgba(14, 18, 28, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  transition: border-color var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.vault-doc-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.25));
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.6);
+}
+
+.vault-doc-thumb {
+  width: 100%;
+  height: 150px;
+  border-radius: var(--radius-md);
+  background: rgba(6, 9, 16, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-doc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vault-ocr-box {
+  width: 100%;
+  min-height: 76px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(6, 9, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  resize: vertical;
+}
+
+.vault-semester-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.14);
+}
+
+.vault-semester-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .vault-semester-grid {
+    grid-template-columns: 1.1fr 0.8fr 0.8fr 1.2fr auto;
+  }
+}
+
+.vault-chip-muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Responsive Top Navigation Polish */
+@media (max-width: 640px) {
+  .glass-nav {
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-lg);
+    gap: 0.65rem;
+  }
+  .glass-nav-links {
+    gap: 0.4rem;
+  }
+  .workspace-switcher {
+    width: 100%;
+    justify-content: center;
+  }
+  .workspace-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+  }
 }
 
 /* ==========================================================================

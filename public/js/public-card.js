@@ -14,6 +14,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2200);
   }
 
+  async function copyTextValue(val, label) {
+    if (!val) return;
+    try {
+      await navigator.clipboard.writeText(val);
+      showToast(label || 'Copied to clipboard!');
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = val;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast(label || 'Copied!');
+    }
+  }
+
   // Subtle interactive 3D tilt (desktop pointer only)
   if (cardPanel && !prefersReducedMotion && window.matchMedia('(hover: hover)').matches) {
     cardPanel.addEventListener('mousemove', (e) => {
@@ -23,8 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const y = e.clientY - rect.top;
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
-      const rotateX = ((y - centerY) / centerY) * -6;
-      const rotateY = ((x - centerX) / centerX) * 6;
+      const rotateX = ((y - centerY) / centerY) * -5;
+      const rotateY = ((x - centerX) / centerX) * 5;
 
       cardPanel.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
     });
@@ -39,23 +55,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (qrDetails && qrDetails.hasAttribute('open') && !qrDetails.contains(e.target)) {
       qrDetails.removeAttribute('open');
     }
+
+    const copyTarget = e.target.closest('[data-copy-text]');
+    if (copyTarget) {
+      const val = copyTarget.getAttribute('data-copy-text');
+      void copyTextValue(val, `Copied "${val}"`);
+    }
   });
 
   // Copy card URL button
   copyBtn?.addEventListener('click', async () => {
     const url = copyBtn.getAttribute('data-copy-url');
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Card link copied to clipboard!');
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      showToast('Card link copied!');
-    }
+    await copyTextValue(url, 'Card link copied to clipboard!');
   });
 });

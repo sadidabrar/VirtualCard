@@ -1,7 +1,11 @@
 import type { CardRepository } from '../repositories/cardRepository.js';
 import type { Card } from '../db/schema.js';
 import type { UpdateCardBody } from '../validators/card.js';
-import { buildSocialsJson } from '../lib/sanitize.js';
+import {
+  buildSocialsJson,
+  parsePhoneEntries,
+  serializePhoneEntries,
+} from '../lib/sanitize.js';
 import { deleteAvatarFile, processAndSaveAvatar } from '../lib/avatar.js';
 import { NotFoundError } from '../types/errors.js';
 
@@ -30,19 +34,49 @@ export class CardService {
       input.social_order
     );
 
+    // Keep primary phone & multi-phone JSON synchronized cleanly whether edited from full UI or simple API callers
+    let resolvedPhonesJson: string;
+    let resolvedPrimaryPhone = input.phone;
+    let resolvedWhatsapp = input.whatsapp;
+
+    if (typeof input.phones_json === 'string') {
+      const parsedPhones = parsePhoneEntries(input.phones_json);
+      resolvedPhonesJson = serializePhoneEntries(parsedPhones);
+      if (parsedPhones.length > 0) {
+        if (!resolvedPrimaryPhone) {
+          resolvedPrimaryPhone = parsedPhones[0].number;
+        }
+        if (!resolvedWhatsapp) {
+          const waEntry = parsedPhones.find((p) => p.is_whatsapp);
+          if (waEntry) resolvedWhatsapp = waEntry.number;
+        }
+      }
+    } else {
+      const syncedPhones = parsePhoneEntries('[]', input.phone, input.whatsapp);
+      resolvedPhonesJson = serializePhoneEntries(syncedPhones);
+    }
+
+    const resolvedExtraSocialsJson =
+      typeof input.extra_socials_json === 'string'
+        ? input.extra_socials_json
+        : existing.extra_socials_json;
+
     const updated = this.cardRepo.updateByUserId(userId, {
       full_name: input.full_name,
       job_title: input.job_title,
       company: input.company,
       tagline: input.tagline,
       address: input.address,
-      phone: input.phone,
-      whatsapp: input.whatsapp,
+      maps_url: input.maps_url,
+      phone: resolvedPrimaryPhone,
+      whatsapp: resolvedWhatsapp,
+      phones_json: resolvedPhonesJson,
       public_email: input.public_email,
       website: input.website,
       theme: input.theme,
       is_published: input.is_published,
       socials: socialsJson,
+      extra_socials_json: resolvedExtraSocialsJson,
       updated_at: new Date().toISOString(),
     });
 

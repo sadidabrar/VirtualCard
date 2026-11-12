@@ -1,11 +1,14 @@
 import express, { type Router, type RequestHandler } from 'express';
 import type { TenantController } from '../controllers/tenantController.js';
+import type { VaultController } from '../controllers/vaultController.js';
 import type { AppRateLimiters } from '../middleware/rateLimit.js';
 import { verifyCsrf } from '../middleware/csrf.js';
 import { parseOptionalAvatar } from '../lib/avatar.js';
+import { parseVaultDocumentUpload } from '../lib/documentProcessor.js';
 
 export function createTenantRouter(
   controller: TenantController,
+  vaultController: VaultController,
   rateLimiters: AppRateLimiters,
   requireTenantOwner: RequestHandler,
   logoutHandler: RequestHandler
@@ -25,6 +28,36 @@ export function createTenantRouter(
     parseOptionalAvatar,
     verifyCsrf,
     controller.updateAvatar
+  );
+
+  // Private Zero-Knowledge Personal Vault (strictly owner-only, never exposed publicly or to master)
+  router.get('/vault', requireTenantOwner, vaultController.showVault);
+  router.post('/vault/setup', requireTenantOwner, verifyCsrf, vaultController.setupVault);
+  router.post('/vault/unlock', requireTenantOwner, verifyCsrf, vaultController.unlockVault);
+  router.post('/vault/lock', requireTenantOwner, verifyCsrf, vaultController.lockVault);
+  router.post('/vault/passcode', requireTenantOwner, verifyCsrf, vaultController.changePasscode);
+  router.post('/vault/profile', requireTenantOwner, verifyCsrf, vaultController.saveProfile);
+  router.get('/vault/search', requireTenantOwner, vaultController.searchVault);
+  router.post(
+    '/vault/documents',
+    requireTenantOwner,
+    parseVaultDocumentUpload,
+    verifyCsrf,
+    vaultController.uploadDocument
+  );
+  router.get('/vault/documents/:docId/file', requireTenantOwner, vaultController.serveDocumentFile);
+  router.post('/vault/documents/:docId', requireTenantOwner, verifyCsrf, vaultController.updateDocument);
+  router.post(
+    '/vault/documents/:docId/ocr',
+    requireTenantOwner,
+    verifyCsrf,
+    vaultController.rerunDocumentOcr
+  );
+  router.post(
+    '/vault/documents/:docId/delete',
+    requireTenantOwner,
+    verifyCsrf,
+    vaultController.deleteDocument
   );
 
   router.post('/logout', verifyCsrf, logoutHandler);

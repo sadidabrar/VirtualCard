@@ -29,6 +29,10 @@
         <% if (currentUser && currentUser.role === 'master') { %>
           <a href="<%= rootHomeHref %>master" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Master Panel</a>
         <% } %>
+        <a href="<%= vaultHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Private Vault
+        </a>
         <a href="<%= publicCardHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
           View Live Card
         </a>
@@ -44,11 +48,23 @@
     <!-- Top Header Summary -->
     <header class="editor-header-bar glass-enter delay-1">
       <div>
-        <div class="glass-badge" style="margin-bottom: 0.5rem;">
-          <span class="glass-badge-dot"></span>
-          <span>@<%= tenant %> Workspace</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.65rem;">
+          <div class="glass-badge">
+            <span class="glass-badge-dot"></span>
+            <span>@<%= tenant %> Workspace</span>
+          </div>
+          <div class="workspace-switcher" role="navigation" aria-label="Workspace Switcher">
+            <a href="#section-identity" class="workspace-tab is-active" aria-current="page">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              Card Editor
+            </a>
+            <a href="<%= vaultHref %>" class="workspace-tab">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Private Vault
+            </a>
+          </div>
         </div>
-        <h1 style="font-size: clamp(1.55rem, 3vw, 2.15rem); margin-bottom: 0.25rem;">Customize Your Liquid Glass Card</h1>
+        <h1 style="font-size: clamp(1.55rem, 3vw, 2.15rem); margin-bottom: 0.25rem;">Customize Your Digital Business Card</h1>
         <p style="font-size: 0.9rem;">
           Public URL: <a href="<%= publicCardHref %>" style="font-weight: 600;"><%= canonicalUrl %></a>
         </p>
@@ -322,7 +338,7 @@
               </div>
             </div>
 
-            <div class="glass-form-group" style="margin-bottom: 0;">
+            <div class="glass-form-group">
               <label class="glass-label" for="edit-address">Office / Location Address</label>
               <input
                 class="glass-input"
@@ -334,17 +350,64 @@
                 maxlength="200"
               >
             </div>
+
+            <div class="glass-form-group">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
+                <label class="glass-label" for="edit-maps-url" style="margin-bottom: 0;">Google Maps Link <span class="glass-label-sub">(Optional)</span></label>
+                <button type="button" id="generate-maps-url-btn" class="mini-action-pill">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Build Link from Address
+                </button>
+              </div>
+              <input
+                class="glass-input"
+                id="edit-maps-url"
+                name="maps_url"
+                type="url"
+                value="<%= card.maps_url || '' %>"
+                placeholder="https://maps.google.com/?q=..."
+                maxlength="500"
+              >
+              <span class="glass-label-sub" style="display: block; margin-top: 0.35rem;">
+                Paste a Google Maps share URL or leave blank to auto-link your address on the public card.
+              </span>
+            </div>
+
+            <div style="margin-top: 1.25rem; padding-top: 1.15rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                <div>
+                  <span class="glass-label" style="margin-bottom: 0.15rem; display: block;">Additional &amp; Labeled Phone Numbers</span>
+                  <span class="glass-label-sub">Visitors get one-tap Call, WhatsApp &amp; direct Save-to-Phone (.vcf) per number.</span>
+                </div>
+                <button type="button" id="add-phone-row-btn" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Phone Number
+                </button>
+              </div>
+
+              <input
+                type="hidden"
+                id="phones-json-input"
+                name="phones_json"
+                value="<%= JSON.stringify(phoneEntries || []) %>"
+              >
+              <div
+                id="phone-rows-container"
+                class="dynamic-list"
+                data-initial-phones="<%= JSON.stringify(phoneEntries || []) %>"
+              ></div>
+            </div>
           </section>
 
           <!-- Section 4: Theme & Visibility -->
           <section class="glass-panel editor-section-panel" id="section-theme" aria-labelledby="heading-theme" style="margin-bottom: 1.5rem;">
             <div class="editor-section-head">
               <h2 id="heading-theme">Theme &amp; Visibility</h2>
-              <span class="glass-label-sub">Refractive tint &amp; public status</span>
+              <span class="glass-label-sub">Brand accent color &amp; public visibility</span>
             </div>
 
             <div class="glass-form-group">
-              <span class="glass-label">Liquid Glass Accent Tint</span>
+              <span class="glass-label">Brand Accent Theme</span>
               <div class="accent-swatch-row">
                 <% accentPresets.forEach(function(preset) { %>
                   <label class="accent-radio-label" title="<%= preset.name %>">
@@ -444,6 +507,32 @@
                 </div>
               <% }); %>
             </div>
+
+            <div style="margin-top: 1.35rem; padding-top: 1.15rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                <div>
+                  <span class="glass-label" style="margin-bottom: 0.15rem; display: block;">Additional Social Accounts &amp; Messaging Numbers</span>
+                  <span class="glass-label-sub">Telegram, Viber, IMO, TikTok, Discord, Messenger, WeChat, hotlines &amp; custom accounts.</span>
+                </div>
+                <button type="button" id="add-extra-social-btn" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Account / Number
+                </button>
+              </div>
+
+              <input
+                type="hidden"
+                id="extra-socials-json-input"
+                name="extra_socials_json"
+                value="<%= JSON.stringify(extraSocials || []) %>"
+              >
+              <div
+                id="extra-socials-container"
+                class="dynamic-list"
+                data-initial-extra-socials="<%= JSON.stringify(extraSocials || []) %>"
+                data-platform-options="<%= JSON.stringify(extraSocialPlatformOptions || []) %>"
+              ></div>
+            </div>
           </section>
 
           <!-- Sticky Save Footer -->
@@ -495,14 +584,28 @@
               </span>
             </div>
 
+            <div id="preview-extra-phones" style="font-size: 0.75rem; color: var(--accent); margin-bottom: 0.45rem;">
+              <% if (phoneEntries && phoneEntries.length > 1) { %>
+                +<%= phoneEntries.length - 1 %> additional number<%= phoneEntries.length - 1 === 1 ? '' : 's' %> &middot; Direct Save-to-Phone enabled
+              <% } %>
+            </div>
+
             <div id="preview-address" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
               <%= card.address || '' %>
             </div>
 
-            <div id="preview-socials-pills" class="vcard-socials-row" style="margin-bottom: 0.85rem;">
+            <div id="preview-socials-pills" class="vcard-socials-row" style="margin-bottom: 0.55rem;">
               <% orderedSocials.forEach(function(s) { %>
                 <% if (s.url) { %>
                   <span class="glass-badge" data-preview-platform="<%= s.platform %>" style="text-transform: capitalize;"><%= s.platform %></span>
+                <% } %>
+              <% }); %>
+            </div>
+
+            <div id="preview-extra-socials-pills" class="vcard-extra-socials" style="margin-bottom: 0.85rem; margin-top: 0;">
+              <% (extraSocials || []).forEach(function(es) { %>
+                <% if (es.value) { %>
+                  <span class="glass-badge" data-preview-extra="1"><%= es.label || es.platform %></span>
                 <% } %>
               <% }); %>
             </div>

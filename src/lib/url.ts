@@ -87,3 +87,42 @@ export function getRootHref(
 
   return cleanPath;
 }
+
+export const VAULT_SECRET_COOKIE = 'vc_vault_secret';
+
+export function readCookieValue(cookieHeader: string | undefined, cookieName: string): string | undefined {
+  if (!cookieHeader) return undefined;
+  const escaped = cookieName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
+  if (!match) return undefined;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+export function setVaultSecretCookie(
+  req: Request,
+  res: Response,
+  secretB64: string,
+  baseDomain: string
+): void {
+  const isHttps = req.secure || req.protocol === 'https';
+  res.cookie(VAULT_SECRET_COOKIE, secretB64, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isHttps,
+    path: '/',
+    maxAge: 30 * 60 * 1000,
+    ...(isBaseDomainRequest(req, baseDomain) ? { domain: baseDomain } : {}),
+  });
+}
+
+export function clearVaultSecretCookie(req: Request, res: Response, baseDomain: string): void {
+  res.clearCookie(VAULT_SECRET_COOKIE, { path: '/' });
+  if (isBaseDomainRequest(req, baseDomain)) {
+    res.clearCookie(VAULT_SECRET_COOKIE, { domain: baseDomain, path: '/' });
+  }
+}
+

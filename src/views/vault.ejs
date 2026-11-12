@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Vault (@<%= tenant %>) — VirtualCard</title>
+  <%- include('partials/favicon') %>
+  <link rel="stylesheet" href="/css/glass.css">
+  <style>
+    :root {
+      --accent: <%= (card && card.theme) || '#38bdf8' %>;
+      --accent-glow: color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+  </style>
+  <script src="/js/head.js"></script>
+</head>
+<body>
+  <%- include('partials/bg') %>
+
+  <div class="glass-nav-wrap" id="vault-top">
+    <nav class="glass-nav" aria-label="Vault Navigation">
+      <a href="<%= rootHomeHref %>" class="glass-brand">
+        <%- include('partials/brand-mark') %>
+        <span>VirtualCard <span style="font-weight: 500; color: var(--text-muted); font-size: 0.85rem;">Private Vault</span></span>
+      </a>
+
+      <div class="glass-nav-links">
+        <a href="<%= editHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
+          Card Editor
+        </a>
+        <a href="<%= publicCardHref %>" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
+          View Live Card
+        </a>
+        <% if (unlocked) { %>
+          <form method="POST" action="<%= lockAction %>" style="display: inline; margin: 0;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Lock Vault
+            </button>
+          </form>
+        <% } %>
+        <form method="POST" action="<%= logoutFormAction %>" style="display: inline; margin: 0;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.95rem; font-size: 0.85rem;">Log Out</button>
+        </form>
+      </div>
+    </nav>
+  </div>
+
+  <main class="editor-page-shell">
+    <header class="editor-header-bar glass-enter delay-1">
+      <div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 0.65rem;">
+          <div class="glass-badge">
+            <span class="glass-badge-dot"></span>
+            <span>@<%= tenant %> Encrypted Vault</span>
+          </div>
+          <div class="workspace-switcher" role="navigation" aria-label="Workspace Switcher">
+            <a href="<%= editHref %>" class="workspace-tab">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              Card Editor
+            </a>
+            <a href="#vault-top" class="workspace-tab is-active" aria-current="page">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Private Vault
+            </a>
+          </div>
+        </div>
+        <h1 style="font-size: clamp(1.55rem, 3vw, 2.15rem); margin-bottom: 0.25rem;">Personal Identity, Academic &amp; Document Vault</h1>
+        <p style="font-size: 0.9rem; max-width: 720px;">
+          Protected by AES-256-GCM encryption under your personal Vault Passcode. Never visible on your public card or accessible to platform administrators.
+        </p>
+      </div>
+
+      <% if (unlocked) { %>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          <a href="#vault-documents" class="glass-pill glass-btn-secondary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Document
+          </a>
+          <form method="POST" action="<%= lockAction %>" style="margin: 0;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" id="header-lock-vault-btn" class="glass-pill glass-btn-primary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Lock Vault Now
+            </button>
+          </form>
+        </div>
+      <% } %>
+    </header>
+
+    <% if (errors && errors.length > 0) { %>
+      <div class="glass-alert glass-alert-error" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <% errors.forEach(function(err) { %>
+            <div><%= err %></div>
+          <% }); %>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (toastMessage) { %>
+      <div class="glass-alert glass-alert-success" role="status">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <div><%= toastMessage %></div>
+      </div>
+    <% } %>
+
+    <% if (!initialized) { %>
+      <!-- Vault Passcode Setup -->
+      <section class="glass-panel vault-shield-card glass-enter delay-2" aria-labelledby="setup-vault-heading">
+        <div class="vault-shield-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </div>
+        <h2 id="setup-vault-heading" style="font-size: 1.55rem; margin-bottom: 0.55rem;">Create Your Private Vault Passcode</h2>
+        <p style="font-size: 0.92rem; margin-bottom: 1.35rem; color: var(--text-muted);">
+          Set a personal Vault Passcode (minimum 6 characters). It derives your encryption key with Argon2id so not even the server admin can inspect your NID, certificates, addresses, or documents.
+        </p>
+
+        <form method="POST" action="<%= setupAction %>" style="text-align: left;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="glass-form-group">
+            <label class="glass-label" for="setup-passcode">Vault Passcode</label>
+            <input
+              class="glass-input"
+              id="setup-passcode"
+              name="passcode"
+              type="password"
+              required
+              minlength="6"
+              maxlength="128"
+              autocomplete="new-password"
+              placeholder="At least 6 characters or passphrase"
+            >
+          </div>
+          <div class="glass-form-group">
+            <label class="glass-label" for="setup-confirm-passcode">Confirm Vault Passcode</label>
+            <input
+              class="glass-input"
+              id="setup-confirm-passcode"
+              name="confirm_passcode"
+              type="password"
+              required
+              minlength="6"
+              maxlength="128"
+              autocomplete="new-password"
+              placeholder="Re-enter passcode"
+            >
+          </div>
+
+          <button type="submit" class="glass-pill glass-btn-primary" style="width: 100%; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Initialize &amp; Unlock Private Vault
+          </button>
+        </form>
+      </section>
+
+    <% } else if (!unlocked) { %>
+      <!-- Vault Locked Screen -->
+      <section class="glass-panel vault-shield-card glass-enter delay-2" aria-labelledby="unlock-vault-heading">
+        <div class="vault-shield-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h2 id="unlock-vault-heading" style="font-size: 1.55rem; margin-bottom: 0.55rem;">Private Vault is Locked</h2>
+        <p style="font-size: 0.92rem; margin-bottom: 1.35rem; color: var(--text-muted);">
+          Enter your personal Vault Passcode to decrypt your IDs, academic records, addresses, and OCR-indexed documents for this browser session.
+        </p>
+
+        <form method="POST" action="<%= unlockAction %>" style="text-align: left;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="glass-form-group">
+            <label class="glass-label" for="unlock-passcode">Vault Passcode</label>
+            <input
+              class="glass-input"
+              id="unlock-passcode"
+              name="passcode"
+              type="password"
+              required
+              minlength="6"
+              maxlength="128"
+              autocomplete="current-password"
+              placeholder="Enter your Vault Passcode"
+              autofocus
+            >
+          </div>
+          <button type="submit" class="glass-pill glass-btn-primary" style="width: 100%; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+            Unlock Private Vault
+          </button>
+        </form>
+      </section>
+
+    <% } else { %>
+      <%
+        function vaultDocUrl(docId, suffix, extraQuery) {
+          const raw = String(uploadDocAction || '');
+          const qIdx = raw.indexOf('?');
+          const basePart = (qIdx >= 0 ? raw.slice(0, qIdx) : raw).replace(/\/+$/, '');
+          const baseQuery = qIdx >= 0 ? raw.slice(qIdx + 1) : '';
+          const params = [baseQuery, extraQuery].filter(Boolean).join('&');
+          return basePart + '/' + docId + suffix + (params ? '?' + params : '');
+        }
+        const hasTenantQuery = String(searchAction || '').includes('__tenant=');
+        const searchCategories = [
+          { id: 'all', label: 'All Records' },
+          { id: 'identity', label: 'IDs' },
+          { id: 'academic', label: 'Academics' },
+          { id: 'address', label: 'Addresses' },
+          { id: 'custom', label: 'Custom Sections' },
+          { id: 'document', label: 'Documents & OCR' },
+        ];
+      %>
+
+      <!-- 1. Instant Search & OCR Indexing Bar -->
+      <section class="glass-panel vault-search-panel glass-enter delay-2" aria-labelledby="vault-search-heading">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+          <div>
+            <h2 id="vault-search-heading" style="font-size: 1.12rem; margin-bottom: 0.1rem;">Search Vault &amp; OCR Document Index</h2>
+            <span class="glass-label-sub">Searches encrypted IDs, roll numbers, semester GPAs, addresses, tags &amp; scanned document text</span>
+          </div>
+          <span class="vault-chip-muted" id="vault-index-stats">
+            <%= (profile.academics || []).length %> Academic &middot; <%= (profile.presentAddresses || []).length + 1 %> Address &middot; <%= (documents || []).length %> Docs Indexed
+          </span>
+        </div>
+
+        <form
+          id="vault-search-form"
+          method="GET"
+          action="<%= searchAction %>"
+          data-search-action="<%= searchAction %>"
+        >
+          <% if (hasTenantQuery) { %>
+            <input type="hidden" name="__tenant" value="<%= tenant %>">
+          <% } %>
+          <input type="hidden" id="vault-search-category-input" name="category" value="<%= searchCategory || 'all' %>">
+
+          <div class="vault-search-row">
+            <div class="vault-search-input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                id="vault-search-input"
+                name="q"
+                type="search"
+                class="glass-input"
+                value="<%= searchQuery || '' %>"
+                placeholder="Search NID, exam roll, SSC, passport, warranty serial, OCR text..."
+                maxlength="120"
+                autocomplete="off"
+              >
+            </div>
+            <button type="submit" class="glass-pill glass-btn-primary">Search</button>
+            <button type="button" id="vault-search-clear-btn" class="glass-pill glass-btn-secondary" <%= searchQuery ? '' : 'hidden' %>>Clear</button>
+          </div>
+
+          <div class="vault-filter-pills" role="group" aria-label="Filter search by category">
+            <% searchCategories.forEach(function(cat) { %>
+              <button
+                type="button"
+                class="vault-filter-btn <%= (searchCategory || 'all') === cat.id ? 'is-active' : '' %>"
+                data-search-category="<%= cat.id %>"
+              >
+                <%= cat.label %>
+              </button>
+            <% }); %>
+          </div>
+        </form>
+
+        <div id="vault-search-results" class="vault-search-results" aria-live="polite">
+          <% if (searchHits !== null) { %>
+            <% if (searchHits.length === 0) { %>
+              <div class="vault-search-hit" style="color: var(--text-muted);">
+                No matching records or OCR document text found for "<%= searchQuery %>".
+              </div>
+            <% } else { %>
+              <% searchHits.forEach(function(hit) { %>
+                <a href="<%= hit.sectionAnchor %>" class="vault-search-hit">
+                  <div style="display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; flex-wrap: wrap;">
+                    <strong style="color: var(--text-main); font-size: 0.94rem;"><%= hit.title %></strong>
+                    <span class="vault-chip-muted"><%= hit.subtitle %></span>
+                  </div>
+                  <div style="font-size: 0.84rem; color: var(--text-muted); margin-top: 0.35rem;">
+                    <% (hit.snippetSegments || []).forEach(function(seg) { %>
+                      <% if (seg.highlighted) { %>
+                        <mark class="vault-highlight"><%= seg.text %></mark>
+                      <% } else { %>
+                        <span><%= seg.text %></span>
+                      <% } %>
+                    <% }); %>
+                  </div>
+                </a>
+              <% }); %>
+            <% } %>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- Section Jump Navigation -->
+      <nav aria-label="Vault sections" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.35rem;">
+        <a href="#vault-identity" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Identity IDs</a>
+        <a href="#vault-academics" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Academics &amp; Semesters</a>
+        <a href="#vault-addresses" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Addresses &amp; Maps</a>
+        <a href="#vault-custom-sections" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Custom Sections</a>
+        <a href="#vault-documents" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Documents &amp; OCR</a>
+        <a href="#vault-security" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.9rem; font-size: 0.82rem;">Passcode Security</a>
+      </nav>
+
+      <!-- 2. Structured Private Profile Form -->
+      <form
+        id="vault-profile-form"
+        method="POST"
+        action="<%= profileAction %>"
+        data-initial-profile="<%= JSON.stringify(profile) %>"
+        data-exam-types="<%= JSON.stringify(examTypes) %>"
+      >
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" id="vault-profile-payload" name="payload" value="">
+
+        <!-- 2A: Identity & Government IDs -->
+        <section class="glass-panel editor-section-panel glass-enter delay-2" id="vault-identity" aria-labelledby="heading-vault-identity" style="margin-bottom: 1.5rem;">
+          <div class="editor-section-head">
+            <div>
+              <h2 id="heading-vault-identity">Personal &amp; Government IDs</h2>
+              <span class="glass-label-sub">Encrypted national, civil, tax &amp; license numbers</span>
+            </div>
+            <button type="button" id="add-identity-field-btn" class="glass-pill glass-btn-secondary" style="padding: 0.42rem 0.88rem; font-size: 0.82rem;">
+              + Add Custom ID Field
+            </button>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-nid">NID Number</label>
+              <input class="glass-input" id="vault-nid" type="text" maxlength="100" value="<%= profile.identity.nid || '' %>" placeholder="National ID number">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-birth-cert">Birth Certificate No</label>
+              <input class="glass-input" id="vault-birth-cert" type="text" maxlength="100" value="<%= profile.identity.birthCertificateNo || '' %>" placeholder="Birth registration number">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-passport">Passport Number</label>
+              <input class="glass-input" id="vault-passport" type="text" maxlength="100" value="<%= profile.identity.passportNumber || '' %>" placeholder="Passport number">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-tin">TIN Number</label>
+              <input class="glass-input" id="vault-tin" type="text" maxlength="100" value="<%= profile.identity.tinNumber || '' %>" placeholder="Taxpayer Identification Number">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-driving-license">Driving License Number</label>
+              <input class="glass-input" id="vault-driving-license" type="text" maxlength="100" value="<%= profile.identity.drivingLicenseNumber || '' %>" placeholder="Driving license number">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="vault-blood-group">Blood Group</label>
+              <input class="glass-input" id="vault-blood-group" type="text" maxlength="20" value="<%= profile.identity.bloodGroup || '' %>" placeholder="e.g. O+, A+, B-">
+            </div>
+          </div>
+
+          <div id="vault-identity-custom-list" class="dynamic-list" style="margin-top: 0.5rem;"></div>
+        </section>
+
+        <!-- 2B: Academics, Higher Studies & Semester Results -->
+        <section class="glass-panel editor-section-panel glass-enter delay-3" id="vault-academics" aria-labelledby="heading-vault-academics" style="margin-bottom: 1.5rem;">
+          <div class="editor-section-head">
+            <div>
+              <h2 id="heading-vault-academics">Education, Higher Studies &amp; Semester Results</h2>
+              <span class="glass-label-sub">PSC, JSC, SSC, HSC, University degrees, roll/registration numbers &amp; semester grades</span>
+            </div>
+            <button type="button" id="add-academic-btn" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+              + Add Exam / Degree
+            </button>
+          </div>
+
+          <div id="vault-academics-list" class="dynamic-list"></div>
+        </section>
+
+        <!-- 2C: Present & Permanent Addresses -->
+        <section class="glass-panel editor-section-panel" id="vault-addresses" aria-labelledby="heading-vault-addresses" style="margin-bottom: 1.5rem;">
+          <div class="editor-section-head">
+            <div>
+              <h2 id="heading-vault-addresses">Present &amp; Permanent Addresses</h2>
+              <span class="glass-label-sub">Multiple present residences plus your permanent home address &amp; Google Maps pin</span>
+            </div>
+            <button type="button" id="add-present-address-btn" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+              + Add Present Address
+            </button>
+          </div>
+
+          <h3 style="font-size: 1rem; margin-bottom: 0.65rem; color: var(--text-main);">Present Addresses</h3>
+          <div id="vault-present-addresses-list" class="dynamic-list" style="margin-bottom: 1.5rem;"></div>
+
+          <div style="padding-top: 1.15rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.85rem;">
+              <h3 style="font-size: 1rem; margin: 0; color: var(--text-main);">Permanent Address</h3>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" id="build-perm-maps-btn" class="mini-action-pill">
+                  Build Google Maps Link
+                </button>
+                <a
+                  id="perm-maps-preview-link"
+                  href="<%= profile.permanentAddress.mapsUrl || '#' %>"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mini-action-pill mini-action-pill-accent"
+                  <%= profile.permanentAddress.mapsUrl ? '' : 'hidden' %>
+                >
+                  Open in Google Maps
+                </a>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-address-line">House / Street / Holding</label>
+                <input class="glass-input" id="perm-address-line" type="text" maxlength="200" value="<%= profile.permanentAddress.addressLine || '' %>" placeholder="House, road, holding">
+              </div>
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-village">Village / Union / Area</label>
+                <input class="glass-input" id="perm-village" type="text" maxlength="120" value="<%= profile.permanentAddress.villageOrArea || '' %>" placeholder="Village, post office, thana">
+              </div>
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-district">District / City</label>
+                <input class="glass-input" id="perm-district" type="text" maxlength="80" value="<%= profile.permanentAddress.district || '' %>" placeholder="District">
+              </div>
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-postal">Postal Code</label>
+                <input class="glass-input" id="perm-postal" type="text" maxlength="30" value="<%= profile.permanentAddress.postalCode || '' %>" placeholder="Postal code">
+              </div>
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-country">Country</label>
+                <input class="glass-input" id="perm-country" type="text" maxlength="80" value="<%= profile.permanentAddress.country || '' %>" placeholder="Bangladesh">
+              </div>
+              <div class="glass-form-group">
+                <label class="glass-label" for="perm-maps-url">Permanent Address Google Maps URL</label>
+                <input class="glass-input" id="perm-maps-url" type="url" maxlength="500" value="<%= profile.permanentAddress.mapsUrl || '' %>" placeholder="https://maps.google.com/?q=...">
+              </div>
+            </div>
+            <div class="glass-form-group" style="margin-bottom: 0;">
+              <label class="glass-label" for="perm-notes">Directions / Landmarks</label>
+              <input class="glass-input" id="perm-notes" type="text" maxlength="300" value="<%= profile.permanentAddress.notes || '' %>" placeholder="Nearby landmark or directions">
+            </div>
+          </div>
+        </section>
+
+        <!-- 2D: Custom Private Sections -->
+        <section class="glass-panel editor-section-panel" id="vault-custom-sections" aria-labelledby="heading-vault-custom" style="margin-bottom: 1.5rem;">
+          <div class="editor-section-head">
+            <div>
+              <h2 id="heading-vault-custom">Custom Private Sections</h2>
+              <span class="glass-label-sub">Create extra encrypted folders for bank notes, emergency contacts, vehicle or property details</span>
+            </div>
+            <button type="button" id="add-custom-section-btn" class="glass-pill glass-btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+              + Add Custom Section
+            </button>
+          </div>
+
+          <div id="vault-custom-sections-list" class="dynamic-list"></div>
+        </section>
+
+        <!-- Sticky Encrypt & Save Profile Bar -->
+        <div class="editor-sticky-save" style="margin-bottom: 2rem;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">
+            All fields above are encrypted locally inside your session before saving.
+          </span>
+          <button type="submit" id="save-vault-profile-btn" class="glass-pill glass-btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Encrypt &amp; Save Personal Records
+          </button>
+        </div>
+      </form>
+
+      <!-- 3. Documents, Certificates, Purchase & Warranty Papers + OCR -->
+      <section class="glass-panel editor-section-panel" id="vault-documents" aria-labelledby="heading-vault-documents" style="margin-bottom: 1.75rem;">
+        <div class="editor-section-head">
+          <div>
+            <h2 id="heading-vault-documents">Certificates, Purchase Papers &amp; Warranties</h2>
+            <span class="glass-label-sub">Auto-compressed images (WebP) and PDFs &middot; Encrypted on disk &middot; Offline OCR text indexing</span>
+          </div>
+        </div>
+
+        <form
+          id="vault-upload-doc-form"
+          method="POST"
+          action="<%= uploadDocAction %>"
+          enctype="multipart/form-data"
+          style="padding: 1.15rem; border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.12); margin-bottom: 1.5rem;"
+        >
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="form-grid-2">
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-file-input">Document File <span class="glass-label-sub">(JPG, PNG, WebP, GIF, or PDF &le; 15 MB)</span></label>
+              <input
+                id="doc-file-input"
+                name="file"
+                type="file"
+                required
+                accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                class="glass-file-input"
+              >
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-title-input">Document Title</label>
+              <input
+                id="doc-title-input"
+                name="title"
+                type="text"
+                required
+                maxlength="140"
+                class="glass-input"
+                placeholder="e.g. SSC Certificate, NID Scan, MacBook Warranty"
+              >
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-category-select">Category</label>
+              <select id="doc-category-select" name="category" class="glass-input glass-select">
+                <% docCategories.forEach(function(cat) { %>
+                  <option value="<%= cat.value %>"><%= cat.label %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-tags-input">Tags <span class="glass-label-sub">(comma-separated)</span></label>
+              <input
+                id="doc-tags-input"
+                name="tags"
+                type="text"
+                maxlength="200"
+                class="glass-input"
+                placeholder="ssc, board, invoice, 2024"
+              >
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-date-input">Issue / Purchase Date</label>
+              <input id="doc-date-input" name="document_date" type="date" class="glass-input">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-expiry-input">Expiry / Warranty Until</label>
+              <input id="doc-expiry-input" name="expiry_date" type="date" class="glass-input">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-linked-ref-input">Linked Record / Reference</label>
+              <input
+                id="doc-linked-ref-input"
+                name="linked_ref"
+                type="text"
+                maxlength="120"
+                class="glass-input"
+                placeholder="e.g. HSC 2018 or Serial #XYZ"
+              >
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="doc-notes-input">Notes</label>
+              <input
+                id="doc-notes-input"
+                name="notes"
+                type="text"
+                maxlength="400"
+                class="glass-input"
+                placeholder="Store location, issuer, extra details"
+              >
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <span class="glass-label-sub">Images are automatically compressed into encrypted WebP and scanned offline via Tesseract OCR.</span>
+            <button type="submit" id="doc-upload-submit-btn" class="glass-pill glass-btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Compress, OCR &amp; Encrypt Document
+            </button>
+          </div>
+        </form>
+
+        <% if (!documents || documents.length === 0) { %>
+          <p style="font-size: 0.9rem; color: var(--text-muted); text-align: center; padding: 1.25rem 0;">
+            No encrypted documents uploaded yet. Upload your certificates, NID scans, purchase invoices, or warranty papers above.
+          </p>
+        <% } else { %>
+          <div class="vault-doc-grid">
+            <% documents.forEach(function(doc) {
+              const docFileUrl = vaultDocUrl(doc.id, '/file');
+              const docDownloadUrl = vaultDocUrl(doc.id, '/file', 'download=1');
+              const docUpdateUrl = vaultDocUrl(doc.id, '');
+              const docOcrUrl = vaultDocUrl(doc.id, '/ocr');
+              const docDeleteUrl = vaultDocUrl(doc.id, '/delete');
+              const isImg = doc.mimeType && doc.mimeType.startsWith('image/');
+              const savedPct = doc.originalSize > 0 && doc.compressedSize < doc.originalSize
+                ? Math.round(((doc.originalSize - doc.compressedSize) / doc.originalSize) * 100)
+                : 0;
+              const origKb = Math.max(1, Math.round((doc.originalSize || 0) / 1024));
+              const compKb = Math.max(1, Math.round((doc.compressedSize || 0) / 1024));
+            %>
+              <article id="vault-doc-<%= doc.id %>" class="vault-doc-card">
+                <div class="vault-doc-thumb">
+                  <% if (isImg) { %>
+                    <img src="<%= docFileUrl %>" alt="<%= doc.title %>" loading="lazy">
+                  <% } else { %>
+                    <div style="text-align: center; padding: 1rem;">
+                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" style="margin-bottom: 0.35rem;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Encrypted PDF</div>
+                      <div style="font-size: 0.74rem; color: var(--text-dim);"><%= doc.originalFilename %></div>
+                    </div>
+                  <% } %>
+                </div>
+
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;">
+                  <div>
+                    <h3 style="font-size: 1rem; margin: 0 0 0.25rem; color: var(--text-main);"><%= doc.title %></h3>
+                    <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                      <span class="vault-chip-muted"><%= doc.category.replace(/_/g, ' ').toUpperCase() %></span>
+                      <span class="vault-chip-muted">
+                        <%= savedPct > 0 ? `Compressed ${savedPct}% (${origKb}KB → ${compKb}KB)` : `${compKb} KB` %>
+                      </span>
+                      <span class="vault-chip-muted">
+                        <%= doc.ocrText ? `OCR Indexed (${Math.round(doc.ocrConfidence || 0)}%)` : `OCR: ${doc.ocrStatus}` %>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <% if (doc.documentDate || doc.expiryOrWarrantyDate || doc.linkedRef) { %>
+                  <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <% if (doc.documentDate) { %><span>Date: <%= doc.documentDate %></span><% } %>
+                    <% if (doc.expiryOrWarrantyDate) { %><span>Expiry/Warranty: <%= doc.expiryOrWarrantyDate %></span><% } %>
+                    <% if (doc.linkedRef) { %><span>Ref: <%= doc.linkedRef %></span><% } %>
+                  </div>
+                <% } %>
+
+                <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+                  <a href="<%= docFileUrl %>" target="_blank" rel="noopener noreferrer" class="mini-action-pill">View</a>
+                  <a href="<%= docDownloadUrl %>" class="mini-action-pill">Download</a>
+                  <form method="POST" action="<%= docOcrUrl %>" style="display: inline; margin: 0;">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="mini-action-pill">Re-run OCR</button>
+                  </form>
+                  <button
+                    type="button"
+                    class="mini-action-pill js-vault-delete-doc"
+                    data-delete-action="<%= docDeleteUrl %>"
+                    data-doc-title="<%= doc.title %>"
+                    style="border-color: rgba(244, 63, 94, 0.4); color: #fda4af;"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <details>
+                  <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--accent);">
+                    Metadata &amp; Extracted OCR Text
+                  </summary>
+                  <form method="POST" action="<%= docUpdateUrl %>" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input class="glass-input" type="text" name="title" required value="<%= doc.title %>" placeholder="Title">
+                    <select class="glass-input glass-select" name="category">
+                      <% docCategories.forEach(function(cat) { %>
+                        <option value="<%= cat.value %>" <%= doc.category === cat.value ? 'selected' : '' %>><%= cat.label %></option>
+                      <% }); %>
+                    </select>
+                    <div class="form-grid-2">
+                      <input class="glass-input" type="date" name="document_date" value="<%= doc.documentDate || '' %>" aria-label="Document date">
+                      <input class="glass-input" type="date" name="expiry_date" value="<%= doc.expiryOrWarrantyDate || '' %>" aria-label="Expiry or warranty date">
+                    </div>
+                    <input class="glass-input" type="text" name="linked_ref" value="<%= doc.linkedRef || '' %>" placeholder="Linked record reference">
+                    <input class="glass-input" type="text" name="tags" value="<%= (doc.customTags || []).join(', ') %>" placeholder="Comma-separated tags">
+                    <input class="glass-input" type="text" name="notes" value="<%= doc.notes || '' %>" placeholder="Notes">
+                    <div>
+                      <label class="glass-label" style="font-size: 0.78rem;">Indexed OCR Text (Editable)</label>
+                      <textarea class="vault-ocr-box" name="ocr_text" placeholder="Extracted text appears here for instant search..."><%= doc.ocrText || '' %></textarea>
+                    </div>
+                    <button type="submit" class="glass-pill glass-btn-secondary" style="align-self: flex-start; padding: 0.4rem 0.85rem; font-size: 0.8rem;">
+                      Save Metadata &amp; OCR Text
+                    </button>
+                  </form>
+                </details>
+              </article>
+            <% }); %>
+          </div>
+        <% } %>
+      </section>
+
+      <!-- 4. Passcode Security -->
+      <section class="glass-panel editor-section-panel" id="vault-security" aria-labelledby="heading-vault-security">
+        <div class="editor-section-head">
+          <div>
+            <h2 id="heading-vault-security">Vault Passcode &amp; Encryption Key</h2>
+            <span class="glass-label-sub">Re-wrap your vault key under a new passcode without losing any documents</span>
+          </div>
+        </div>
+
+        <form method="POST" action="<%= passcodeAction %>">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="form-grid-2">
+            <div class="glass-form-group">
+              <label class="glass-label" for="current-vault-passcode">Current Passcode</label>
+              <input class="glass-input" id="current-vault-passcode" name="current_passcode" type="password" required minlength="6" autocomplete="current-password">
+            </div>
+            <div class="glass-form-group">
+              <label class="glass-label" for="new-vault-passcode">New Passcode</label>
+              <input class="glass-input" id="new-vault-passcode" name="new_passcode" type="password" required minlength="6" autocomplete="new-password">
+            </div>
+          </div>
+          <div class="glass-form-group">
+            <label class="glass-label" for="confirm-new-vault-passcode">Confirm New Passcode</label>
+            <input class="glass-input" id="confirm-new-vault-passcode" name="confirm_new_passcode" type="password" required minlength="6" autocomplete="new-password">
+          </div>
+          <button type="submit" class="glass-pill glass-btn-secondary">Update Vault Passcode</button>
+        </form>
+      </section>
+
+      <!-- Delete Confirmation Dialog -->
+      <dialog id="vault-delete-dialog" class="glass-modal" aria-labelledby="vault-delete-dialog-title">
+        <h3 id="vault-delete-dialog-title" style="margin-bottom: 0.5rem;">Delete Encrypted Document?</h3>
+        <p id="vault-delete-dialog-text" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          This permanently deletes the encrypted document and its OCR index from your vault.
+        </p>
+        <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+          <button type="button" id="vault-delete-cancel-btn" class="glass-pill glass-btn-secondary">Cancel</button>
+          <form id="vault-delete-confirm-form" method="POST" action="" style="margin: 0;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="glass-pill glass-btn-primary" style="background: #e11d48;">Delete Permanently</button>
+          </form>
+        </div>
+      </dialog>
+    <% } %>
+  </main>
+
+  <script src="/js/vault.js" defer></script>
+</body>
+</html>

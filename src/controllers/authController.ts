@@ -6,6 +6,7 @@ import { loginBodySchema, signupBodySchema } from '../validators/auth.js';
 import { ACCENT_PRESETS, sanitizeText } from '../lib/sanitize.js';
 import {
   applySessionCookieDomain,
+  clearVaultSecretCookie,
   getCanonicalTenantUrl,
   getClickableTenantHref,
   isBaseDomainRequest,
@@ -243,6 +244,7 @@ export class AuthController {
       if (isBaseDomainRequest(req, this.baseDomain)) {
         res.clearCookie('vc_session', { domain: this.baseDomain, path: '/' });
       }
+      clearVaultSecretCookie(req, res, this.baseDomain);
       if (wantsJson(req)) {
         res.json({ ok: true, data: { loggedOut: true } });
         return;
