@@ -84,6 +84,22 @@ test('E2E smoke: signup -> subdomain -> QR -> owner edit -> master suspend', asy
   await page.goto(`http://localhost:3199/edit?__tenant=${username}`);
   await expect(page).toHaveTitle(new RegExp(`Edit Card \\(@${username}\\)`));
 
+  // Verify favicon asset loads cleanly and editor QR action buttons align cleanly on a single line each
+  const faviconResp = await page.request.get('http://localhost:3199/favicon.svg');
+  expect(faviconResp.status()).toBe(200);
+  const qrButtons = page.locator('.editor-qr-btn');
+  await expect(qrButtons).toHaveCount(3);
+  const qrBox0 = await qrButtons.nth(0).boundingBox();
+  const qrBox1 = await qrButtons.nth(1).boundingBox();
+  const qrBox2 = await qrButtons.nth(2).boundingBox();
+  expect(qrBox0).not.toBeNull();
+  expect(qrBox1).not.toBeNull();
+  expect(qrBox2).not.toBeNull();
+  expect(Math.abs(qrBox0!.height - qrBox1!.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(qrBox0!.height - qrBox2!.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(qrBox0!.width - qrBox1!.width)).toBeLessThanOrEqual(2);
+  expect(Math.abs(qrBox0!.width - qrBox2!.width)).toBeLessThanOrEqual(2);
+
   // Verify live preview updates synchronously in browser
   await page.fill('#edit-full-name', 'Smoke Test Updated');
   await expect(page.locator('#preview-name')).toHaveText('Smoke Test Updated');

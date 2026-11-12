@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit Card (@<%= tenant %>) — VirtualCard</title>
+  <%- include('partials/favicon') %>
   <link rel="stylesheet" href="/css/glass.css">
   <style>
     :root {
@@ -20,12 +21,7 @@
   <div class="glass-nav-wrap">
     <nav class="glass-nav" aria-label="Editor Navigation">
       <a href="<%= rootHomeHref %>" class="glass-brand">
-        <span class="glass-brand-icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <rect width="14" height="20" x="5" y="2" rx="3" />
-            <path d="M12 18h.01" />
-          </svg>
-        </span>
+        <%- include('partials/brand-mark') %>
         <span>VirtualCard <span style="font-weight: 500; color: var(--text-muted); font-size: 0.85rem;">Editor</span></span>
       </a>
 
@@ -124,21 +120,24 @@
 
         <div class="editor-nav-group">
           <div class="editor-nav-title">Print &amp; Export QR</div>
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 0.4rem 0;">
+          <div class="editor-qr-panel">
             <div class="solid-qr-card" style="padding: 0.65rem; border-radius: 12px;">
               <img src="<%= qrDataUrl %>" alt="QR Code for <%= tenant %>" width="112" height="112" style="display: block;">
             </div>
-            <div style="display: flex; gap: 0.5rem; width: 100%;">
-              <a href="<%= qrPngHref %>" class="glass-pill glass-btn-secondary" style="flex: 1; justify-content: center; padding: 0.45rem 0.65rem; font-size: 0.78rem;" download>
-                PNG (2048px)
+            <div class="editor-qr-actions">
+              <a href="<%= qrPngHref %>" class="glass-pill glass-btn-secondary editor-qr-btn" download="<%= tenant %>-card.png">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Download PNG (2048px)</span>
               </a>
-              <a href="<%= qrSvgHref %>" class="glass-pill glass-btn-secondary" style="flex: 1; justify-content: center; padding: 0.45rem 0.65rem; font-size: 0.78rem;" download>
-                SVG Vector
+              <a href="<%= qrSvgHref %>" class="glass-pill glass-btn-secondary editor-qr-btn" download="<%= tenant %>-card.svg">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Download SVG Vector</span>
+              </a>
+              <a href="<%= vcardHref %>" class="glass-pill glass-btn-secondary editor-qr-btn" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span>Download .vcf Contact</span>
               </a>
             </div>
-            <a href="<%= vcardHref %>" class="glass-pill glass-btn-secondary" style="width: 100%; justify-content: center; padding: 0.45rem 0.75rem; font-size: 0.78rem;" download>
-              Download .vcf Contact
-            </a>
           </div>
         </div>
       </aside>

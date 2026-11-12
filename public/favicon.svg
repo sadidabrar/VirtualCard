@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="vc-bg" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="55%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+    <linearGradient id="vc-card" x1="5" y1="9.5" x2="27" y2="24.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e0f2fe" />
+    </linearGradient>
+  </defs>
+
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#vc-bg)" />
+  <rect x="1.5" y="1.5" width="29" height="29" rx="7.5" stroke="#ffffff" stroke-opacity="0.38" stroke-width="1" />
+
+  <rect x="6.5" y="6.2" width="19.5" height="13.5" rx="2.8" transform="rotate(-8 16 13)" fill="#ffffff" fill-opacity="0.32" stroke="#ffffff" stroke-opacity="0.55" stroke-width="0.8" />
+  <rect x="5" y="9.5" width="22" height="15" rx="3" fill="url(#vc-card)" />
+
+  <circle cx="10.2" cy="14.5" r="2.2" fill="#0284c7" />
+  <rect x="13.8" y="12.7" width="9.8" height="2" rx="1" fill="#0f172a" />
+  <rect x="13.8" y="15.9" width="6.6" height="1.6" rx="0.8" fill="#64748b" />
+  <rect x="8" y="19.8" width="8.5" height="1.8" rx="0.9" fill="#38bdf8" />
+
+  <rect x="19" y="18.2" width="2.1" height="2.1" rx="0.5" fill="#0f172a" />
+  <rect x="21.8" y="18.2" width="2.1" height="2.1" rx="0.5" fill="#0284c7" />
+  <rect x="19" y="21" width="2.1" height="2.1" rx="0.5" fill="#0f172a" />
+  <rect x="21.8" y="21" width="2.1" height="2.1" rx="0.5" fill="#0f172a" />
+</svg>

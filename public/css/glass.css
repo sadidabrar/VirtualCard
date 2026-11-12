@@ -262,6 +262,7 @@ p {
   color: var(--text-main);
   font-weight: 600;
   font-size: 0.925rem;
+  text-align: center;
   cursor: pointer;
   outline: none;
   transition: transform var(--motion-fast), box-shadow var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
@@ -663,15 +664,17 @@ p {
 }
 
 .glass-brand-icon {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 60%, #1e40af) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 55%, #1e3a8a) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-on-accent);
-  box-shadow: 0 0 16px var(--accent-glow);
+  color: color-mix(in srgb, var(--accent) 76%, #0f172a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 18px var(--accent-glow);
 }
 
 .glass-nav-links {
@@ -960,13 +963,13 @@ p {
 
 @media (min-width: 900px) {
   .editor-layout {
-    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-columns: 264px minmax(0, 1fr);
   }
 }
 
 @media (min-width: 1220px) {
   .editor-layout {
-    grid-template-columns: 250px minmax(0, 1fr) 360px;
+    grid-template-columns: 264px minmax(0, 1fr) 360px;
   }
 }
 
@@ -1019,6 +1022,31 @@ p {
   background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.06));
   border-color: color-mix(in srgb, var(--accent) 42%, rgba(255, 255, 255, 0.16));
   transform: translateX(2px);
+}
+
+.editor-qr-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.4rem 0;
+}
+
+.editor-qr-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.editor-qr-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .editor-main-stack {

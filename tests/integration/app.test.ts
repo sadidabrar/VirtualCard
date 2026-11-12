@@ -856,4 +856,22 @@ describe('VirtualCard Backend Integration Tests', () => {
       });
     expect(healedLogin.status).toBe(302);
   });
+
+  it('serves favicon assets and renders icon links + organized editor QR actions', async () => {
+    const svgFavicon = await request(ctx.app).get('/favicon.svg');
+    expect(svgFavicon.status).toBe(200);
+    expect(svgFavicon.headers['content-type']).toContain('image/svg+xml');
+    const svgBody = svgFavicon.text || Buffer.from(svgFavicon.body).toString('utf8');
+    expect(svgBody).toContain('<svg');
+
+    const icoFavicon = await request(ctx.app).get('/favicon.ico');
+    expect(icoFavicon.status).toBe(200);
+
+    for (const urlPath of ['/', '/login', '/signup', '/demo']) {
+      const pageRes = await request(ctx.app).get(urlPath);
+      expect(pageRes.status).toBe(200);
+      expect(pageRes.text).toContain('href="/favicon.svg"');
+      expect(pageRes.text).toContain('href="/favicon.ico"');
+    }
+  });
 });
