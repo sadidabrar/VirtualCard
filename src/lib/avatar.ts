@@ -82,11 +82,13 @@ export function hasValidPdfMagicBytes(buf: Buffer): boolean {
   );
 }
 
+export const MAX_SAFE_IMAGE_PIXELS = 16_777_216; // 16 megapixels (~4096 x 4096) decompression bomb safeguard
+
 export async function compressImageToWebp(
   buf: Buffer,
   options: { width: number; height: number; fit: 'cover' | 'inside'; quality: number }
 ): Promise<Buffer> {
-  return sharp(buf)
+  return sharp(buf, { limitInputPixels: MAX_SAFE_IMAGE_PIXELS, failOn: 'error' })
     .rotate()
     .resize(options.width, options.height, {
       fit: options.fit,

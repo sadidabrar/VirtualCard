@@ -126,7 +126,13 @@ export function createApp(deps: AppDependencies): Express {
     env.BASE_DOMAIN,
     isProd
   );
-  const tenantController = new TenantController(qrService, cardService, env.BASE_DOMAIN, isProd);
+  const tenantController = new TenantController(
+    qrService,
+    cardService,
+    env.BASE_DOMAIN,
+    isProd,
+    authService
+  );
   const vaultController = new VaultController(vaultService, env.BASE_DOMAIN, isProd);
   const mediaController = new MediaController(env.UPLOAD_DIR);
   const masterController = new MasterController(masterService, qrService, env.BASE_DOMAIN, isProd);

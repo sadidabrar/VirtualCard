@@ -1,8 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { QrService } from '../services/qrService.js';
 import type { CardService } from '../services/cardService.js';
+import type { AuthService } from '../services/authService.js';
 import { qrSizeQuerySchema } from '../validators/common.js';
 import { updateCardBodySchema } from '../validators/card.js';
+import { changeUserPasswordSchema } from '../validators/auth.js';
 import { AppError, NotFoundError, ValidationError } from '../types/errors.js';
 import {
   ACCENT_PRESETS,
@@ -26,7 +28,8 @@ export class TenantController {
     private readonly qrService: QrService,
     private readonly cardService: CardService,
     private readonly baseDomain: string,
-    private readonly isProd: boolean
+    private readonly isProd: boolean,
+    private readonly authService?: AuthService
   ) {}
 
   showPublicCard = async (req: Request, res: Response): Promise<void> => {
@@ -182,6 +185,8 @@ export class TenantController {
       toastMessage = 'Avatar updated!';
     } else if (req.query.avatar === 'removed') {
       toastMessage = 'Avatar removed.';
+    } else if (req.query.pw_saved === '1') {
+      toastMessage = 'Password updated successfully!';
     }
 
     await this.renderEditor(req, res, { card, toastMessage });
@@ -302,6 +307,42 @@ export class TenantController {
         errors: [err.message],
         statusCode: err.statusCode,
       });
+    }
+  };
+
+  updatePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (!this.authService) {
+      throw new AppError('Password update service is currently unavailable.', 500);
+    }
+    const username = req.tenant!;
+    const card = req.tenantCard!;
+    const parsed = changeUserPasswordSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      if (wantsJson(req)) {
+        return next(parsed.error);
+      }
+      const errors = parsed.error.issues.map((i) => i.message);
+      await this.renderEditor(req, res, { card, errors, statusCode: 400 });
+      return;
+    }
+
+    try {
+      await this.authService.changePassword(
+        req.currentUser!.id,
+        parsed.data.current_password,
+        parsed.data.new_password
+      );
+      if (wantsJson(req)) {
+        res.json({ ok: true, data: { passwordChanged: true } });
+        return;
+      }
+      res.redirect(
+        getClickableTenantHref(username, '/edit?pw_saved=1', req, this.baseDomain, this.isProd)
+      );
+    } catch (err) {
+      if (wantsJson(req) || !(err instanceof AppError)) return next(err);
+      await this.renderEditor(req, res, { card, errors: [err.message], statusCode: err.statusCode });
     }
   };
 

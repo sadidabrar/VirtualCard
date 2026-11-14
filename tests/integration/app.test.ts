@@ -949,4 +949,89 @@ describe('VirtualCard Backend Integration Tests', () => {
     const editorReauth = await userAgent.get('/edit?__tenant=sessionvictim');
     expect(editorReauth.status).toBe(200);
   });
+
+  it('serves robots.txt with search engine directives (SEC-08)', async () => {
+    const res = await request(ctx.app).get('/robots.txt');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('User-agent: *');
+    expect(res.text).toContain('Disallow: /vault');
+    expect(res.text).toContain('Disallow: /edit');
+    expect(res.text).toContain('Disallow: /master');
+    expect(res.text).toContain('Allow: /demo');
+  });
+
+  it('allows tenants to update their account password securely (SEC-09)', async () => {
+    const userAgent = request.agent(ctx.app);
+    const signupPage = await userAgent.get('/signup');
+    const sCsrf = extractCsrf(signupPage.text);
+
+    await userAgent
+      .post('/signup')
+      .type('form')
+      .send({
+        _csrf: sCsrf,
+        username: 'pwchangeuser',
+        email: 'pwuser@virtualcard.duckdns.org',
+        password: 'OriginalPass2026!',
+        confirm_password: 'OriginalPass2026!',
+        full_name: 'Password Change User',
+      });
+
+    const editPage = await userAgent.get('/edit?__tenant=pwchangeuser');
+    expect(editPage.status).toBe(200);
+    expect(editPage.text).toContain('Account Security');
+    const editCsrf = extractCsrf(editPage.text);
+
+    // 1. Wrong current password fails with 400
+    const badAttempt = await userAgent
+      .post('/edit/password?__tenant=pwchangeuser')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        current_password: 'WrongCurrentPassword!',
+        new_password: 'BrandNewSecurePass2026!',
+        confirm_password: 'BrandNewSecurePass2026!',
+      });
+    expect(badAttempt.status).toBe(400);
+    expect(badAttempt.text).toContain('Current password is incorrect');
+
+    // 2. Mismatched confirmation fails with 400
+    const mismatchAttempt = await userAgent
+      .post('/edit/password?__tenant=pwchangeuser')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        current_password: 'OriginalPass2026!',
+        new_password: 'BrandNewSecurePass2026!',
+        confirm_password: 'DoesNotMatch2026!',
+      });
+    expect(mismatchAttempt.status).toBe(400);
+
+    // 3. Valid password change succeeds with 302 redirect
+    const goodAttempt = await userAgent
+      .post('/edit/password?__tenant=pwchangeuser')
+      .type('form')
+      .send({
+        _csrf: editCsrf,
+        current_password: 'OriginalPass2026!',
+        new_password: 'BrandNewSecurePass2026!',
+        confirm_password: 'BrandNewSecurePass2026!',
+      });
+    expect(goodAttempt.status).toBe(302);
+    expect(goodAttempt.headers.location).toContain('pw_saved=1');
+
+    // 4. Verify new password works on login
+    const newClient = request.agent(ctx.app);
+    const loginPage = await newClient.get('/login');
+    const lCsrf = extractCsrf(loginPage.text);
+    const loginRes = await newClient
+      .post('/login')
+      .type('form')
+      .send({
+        _csrf: lCsrf,
+        identifier: 'pwchangeuser',
+        password: 'BrandNewSecurePass2026!',
+      });
+    expect(loginRes.status).toBe(302);
+  });
 });

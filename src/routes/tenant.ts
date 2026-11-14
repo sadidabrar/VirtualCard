@@ -29,6 +29,13 @@ export function createTenantRouter(
     verifyCsrf,
     controller.updateAvatar
   );
+  router.post(
+    '/edit/password',
+    requireTenantOwner,
+    rateLimiters.login,
+    verifyCsrf,
+    controller.updatePassword
+  );
 
   // Private Zero-Knowledge Personal Vault (strictly owner-only, never exposed publicly or to master)
   router.get('/vault', requireTenantOwner, vaultController.showVault);

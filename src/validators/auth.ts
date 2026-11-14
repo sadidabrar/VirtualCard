@@ -73,3 +73,16 @@ export const loginBodySchema = z.object({
 
 export type SignupBody = z.infer<typeof signupBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
+
+export const changeUserPasswordSchema = z
+  .object({
+    current_password: z.string().min(1, 'Current password is required.').max(128),
+    new_password: z.string().min(8, 'New password must be at least 8 characters long.').max(128),
+    confirm_password: z.string().min(1, 'Please confirm your new password.').max(128),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: 'New password and confirmation do not match.',
+    path: ['confirm_password'],
+  });
+
+export type ChangeUserPasswordBody = z.infer<typeof changeUserPasswordSchema>;

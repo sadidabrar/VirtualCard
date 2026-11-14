@@ -1,0 +1,23 @@
+# VirtualCard Search Engine Directives
+User-agent: *
+
+# Allow indexing of public landing pages and public digital business cards
+Allow: /$
+Allow: /demo
+Allow: /login
+Allow: /signup
+Allow: /favicon.ico
+Allow: /favicon.svg
+Allow: /css/
+Allow: /js/
+Allow: /media/
+
+# Disallow indexing of private dashboards, vault, editors, and administration panels
+Disallow: /edit
+Disallow: /vault
+Disallow: /master
+Disallow: /api/
+Disallow: /logout
+Disallow: /qr.png
+Disallow: /qr.svg
+Disallow: /vcard

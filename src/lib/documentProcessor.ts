@@ -8,6 +8,7 @@ import {
   compressImageToWebp,
   hasValidImageMagicBytes,
   hasValidPdfMagicBytes,
+  MAX_SAFE_IMAGE_PIXELS,
 } from './avatar.js';
 import { ValidationError } from '../types/errors.js';
 
@@ -163,7 +164,14 @@ async function extractOcrFromPdfBuffer(pdfBuffer: Buffer): Promise<{
         format: 'png',
       });
       const pagePng = Buffer.from(rendered);
-      const ocrPagePng = await sharp(pagePng).grayscale().normalise().png().toBuffer();
+      const ocrPagePng = await sharp(pagePng, {
+        limitInputPixels: MAX_SAFE_IMAGE_PIXELS,
+        failOn: 'error',
+      })
+        .grayscale()
+        .normalise()
+        .png()
+        .toBuffer();
       const ocr = await recognizeImageText(ocrPagePng);
       if (ocr.text) {
         pageTexts.push(ocr.text);
@@ -240,7 +248,10 @@ export async function processVaultDocumentFile(
   }
 
   // Generate crisp high-contrast PNG for accurate OCR before aggressive archival compression
-  const ocrReadyPng = await sharp(file.buffer)
+  const ocrReadyPng = await sharp(file.buffer, {
+    limitInputPixels: MAX_SAFE_IMAGE_PIXELS,
+    failOn: 'error',
+  })
     .rotate()
     .resize(2200, 2200, { fit: 'inside', withoutEnlargement: true })
     .grayscale()
@@ -291,7 +302,10 @@ export async function rerunOcrOnDecryptedBuffer(
   if (mimeType === 'application/pdf') {
     return extractOcrFromPdfBuffer(plainBuffer);
   }
-  const ocrReadyPng = await sharp(plainBuffer)
+  const ocrReadyPng = await sharp(plainBuffer, {
+    limitInputPixels: MAX_SAFE_IMAGE_PIXELS,
+    failOn: 'error',
+  })
     .rotate()
     .resize(2200, 2200, { fit: 'inside', withoutEnlargement: true })
     .grayscale()

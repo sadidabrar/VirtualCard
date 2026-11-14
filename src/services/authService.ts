@@ -164,4 +164,24 @@ export class AuthService {
     const { password_hash: _ignored, ...safeUser } = user;
     return safeUser;
   }
+
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
+    const user = this.userRepo.findById(userId);
+    if (!user) {
+      throw new AuthError('User account not found.', 404, 'USER_NOT_FOUND');
+    }
+
+    const valid = await verifyPassword(user.password_hash, currentPassword);
+    if (!valid) {
+      throw new AuthError(
+        'Current password is incorrect.',
+        400,
+        'INVALID_CURRENT_PASSWORD',
+        'current_password'
+      );
+    }
+
+    const newHash = await hashPassword(newPassword);
+    this.userRepo.updatePasswordHash(userId, newHash, new Date().toISOString());
+  }
 }
