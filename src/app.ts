@@ -139,7 +139,15 @@ export function createApp(deps: AppDependencies): Express {
   app.use('/', createHealthRouter(healthController));
 
   // 5. Static Assets & Controlled Media Serving
-  app.use(express.static(path.join(__dirname, '../public')));
+  app.use(
+    express.static(path.join(__dirname, '../public'), {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        }
+      },
+    })
+  );
   app.use('/media', createMediaRouter(mediaController));
 
   // 6. Body Parsing & Persistent SQLite Session Store

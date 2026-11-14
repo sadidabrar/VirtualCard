@@ -1,3 +1,34 @@
+<style>
+  /* Critical mobile nav rules: inline to guarantee immediate cache-free display */
+  @media (max-width: 768px) {
+    .glass-nav-links { display: none !important; }
+    .glass-nav-mobile { display: block !important; position: relative !important; }
+  }
+  @media (min-width: 769px) {
+    .glass-nav-mobile { display: none !important; }
+  }
+  .glass-nav-mobile summary {
+    list-style: none !important;
+  }
+  .glass-nav-mobile summary::-webkit-details-marker,
+  .glass-nav-mobile summary::marker {
+    display: none !important;
+    content: "" !important;
+    font-size: 0 !important;
+  }
+  .glass-nav-mobile:not([open]) .icon-menu-close {
+    display: none !important;
+  }
+  .glass-nav-mobile:not([open]) .icon-menu-open {
+    display: block !important;
+  }
+  .glass-nav-mobile[open] .icon-menu-open {
+    display: none !important;
+  }
+  .glass-nav-mobile[open] .icon-menu-close {
+    display: block !important;
+  }
+</style>
 <div class="glass-nav-wrap">
   <nav class="glass-nav" aria-label="Main Navigation">
     <a href="/" class="glass-brand">

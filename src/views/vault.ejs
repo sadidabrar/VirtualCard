@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Private Vault (@<%= tenant %>) — VirtualCard</title>
   <%- include('partials/favicon') %>
-  <link rel="stylesheet" href="/css/glass.css">
+  <link rel="stylesheet" href="/css/glass.css?v=2.1.0">
   <style>
     :root {
       --accent: <%= (card && card.theme) || '#38bdf8' %>;
@@ -17,7 +17,38 @@
 <body>
   <%- include('partials/bg') %>
 
-  <div class="glass-nav-wrap" id="vault-top">
+  <style>
+  /* Critical mobile nav rules */
+  @media (max-width: 768px) {
+    .glass-nav-links { display: none !important; }
+    .glass-nav-mobile { display: block !important; position: relative !important; }
+  }
+  @media (min-width: 769px) {
+    .glass-nav-mobile { display: none !important; }
+  }
+  .glass-nav-mobile summary {
+    list-style: none !important;
+  }
+  .glass-nav-mobile summary::-webkit-details-marker,
+  .glass-nav-mobile summary::marker {
+    display: none !important;
+    content: "" !important;
+    font-size: 0 !important;
+  }
+  .glass-nav-mobile:not([open]) .icon-menu-close {
+    display: none !important;
+  }
+  .glass-nav-mobile:not([open]) .icon-menu-open {
+    display: block !important;
+  }
+  .glass-nav-mobile[open] .icon-menu-open {
+    display: none !important;
+  }
+  .glass-nav-mobile[open] .icon-menu-close {
+    display: block !important;
+  }
+</style>
+<div class="glass-nav-wrap" id="vault-top">
     <nav class="glass-nav" aria-label="Vault Navigation">
       <a href="<%= rootHomeHref %>" class="glass-brand">
         <%- include('partials/brand-mark') %>
