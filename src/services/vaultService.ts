@@ -37,6 +37,8 @@ export interface VaultUnlockResult {
 }
 
 export class VaultService {
+  private readonly inFlightOcrJobs = new Set<string>();
+
   constructor(
     private readonly vaultRepo: VaultRepository,
     private readonly uploadDir: string
@@ -338,34 +340,48 @@ export class VaultService {
     userId: number,
     dek: Buffer
   ): Promise<VaultDocumentSummary> {
-    const { buffer, mimeType, summary } = await this.getDecryptedDocumentFile(docId, userId, dek);
-    const ocrResult = await rerunOcrOnDecryptedBuffer(buffer, mimeType);
-
-    const nextMeta: VaultDocumentMeta = {
-      title: summary.title,
-      category: summary.category,
-      linkedRef: summary.linkedRef,
-      documentDate: summary.documentDate,
-      expiryOrWarrantyDate: summary.expiryOrWarrantyDate,
-      originalFilename: summary.originalFilename,
-      notes: summary.notes,
-      ocrText: ocrResult.ocrText,
-      ocrStatus: ocrResult.ocrStatus,
-      ocrConfidence: ocrResult.ocrConfidence,
-      customTags: summary.customTags,
-    };
-
-    const encMeta = encryptVaultJson(dek, nextMeta);
-    const updated = this.vaultRepo.updateDocumentMetaForUser(docId, userId, {
-      meta_ciphertext: encMeta.ciphertext,
-      meta_iv: encMeta.iv,
-      meta_tag: encMeta.tag,
-      updated_at: new Date().toISOString(),
-    });
-    if (!updated) {
-      throw new NotFoundError('Document not found.', 'VAULT_DOC_NOT_FOUND');
+    const jobKey = `${userId}:${docId}`;
+    if (this.inFlightOcrJobs.has(jobKey)) {
+      throw new ValidationError(
+        'OCR recognition is already in progress for this document. Please wait a moment.',
+        'OCR_ALREADY_IN_PROGRESS',
+        'docId'
+      );
     }
-    return this.mapDocumentRow(dek, updated);
+    this.inFlightOcrJobs.add(jobKey);
+
+    try {
+      const { buffer, mimeType, summary } = await this.getDecryptedDocumentFile(docId, userId, dek);
+      const ocrResult = await rerunOcrOnDecryptedBuffer(buffer, mimeType);
+
+      const nextMeta: VaultDocumentMeta = {
+        title: summary.title,
+        category: summary.category,
+        linkedRef: summary.linkedRef,
+        documentDate: summary.documentDate,
+        expiryOrWarrantyDate: summary.expiryOrWarrantyDate,
+        originalFilename: summary.originalFilename,
+        notes: summary.notes,
+        ocrText: ocrResult.ocrText,
+        ocrStatus: ocrResult.ocrStatus,
+        ocrConfidence: ocrResult.ocrConfidence,
+        customTags: summary.customTags,
+      };
+
+      const encMeta = encryptVaultJson(dek, nextMeta);
+      const updated = this.vaultRepo.updateDocumentMetaForUser(docId, userId, {
+        meta_ciphertext: encMeta.ciphertext,
+        meta_iv: encMeta.iv,
+        meta_tag: encMeta.tag,
+        updated_at: new Date().toISOString(),
+      });
+      if (!updated) {
+        throw new NotFoundError('Document not found.', 'VAULT_DOC_NOT_FOUND');
+      }
+      return this.mapDocumentRow(dek, updated);
+    } finally {
+      this.inFlightOcrJobs.delete(jobKey);
+    }
   }
 
   async deleteDocument(docId: number, userId: number): Promise<void> {

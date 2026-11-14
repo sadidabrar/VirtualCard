@@ -106,7 +106,7 @@ export function setVaultSecretCookie(
   req: Request,
   res: Response,
   secretB64: string,
-  baseDomain: string
+  _baseDomain?: string
 ): void {
   const isHttps = req.secure || req.protocol === 'https';
   res.cookie(VAULT_SECRET_COOKIE, secretB64, {
@@ -115,7 +115,8 @@ export function setVaultSecretCookie(
     secure: isHttps,
     path: '/',
     maxAge: 30 * 60 * 1000,
-    ...(isBaseDomainRequest(req, baseDomain) ? { domain: baseDomain } : {}),
+    // Host-only cookie: intentionally omit 'domain' so the secret is strictly
+    // confined to this specific tenant subdomain and never leaks across other tenants.
   });
 }
 

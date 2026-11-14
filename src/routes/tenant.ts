@@ -32,15 +32,34 @@ export function createTenantRouter(
 
   // Private Zero-Knowledge Personal Vault (strictly owner-only, never exposed publicly or to master)
   router.get('/vault', requireTenantOwner, vaultController.showVault);
-  router.post('/vault/setup', requireTenantOwner, verifyCsrf, vaultController.setupVault);
-  router.post('/vault/unlock', requireTenantOwner, verifyCsrf, vaultController.unlockVault);
+  router.post(
+    '/vault/setup',
+    requireTenantOwner,
+    rateLimiters.vaultUnlock,
+    verifyCsrf,
+    vaultController.setupVault
+  );
+  router.post(
+    '/vault/unlock',
+    requireTenantOwner,
+    rateLimiters.vaultUnlock,
+    verifyCsrf,
+    vaultController.unlockVault
+  );
   router.post('/vault/lock', requireTenantOwner, verifyCsrf, vaultController.lockVault);
-  router.post('/vault/passcode', requireTenantOwner, verifyCsrf, vaultController.changePasscode);
+  router.post(
+    '/vault/passcode',
+    requireTenantOwner,
+    rateLimiters.vaultUnlock,
+    verifyCsrf,
+    vaultController.changePasscode
+  );
   router.post('/vault/profile', requireTenantOwner, verifyCsrf, vaultController.saveProfile);
   router.get('/vault/search', requireTenantOwner, vaultController.searchVault);
   router.post(
     '/vault/documents',
     requireTenantOwner,
+    rateLimiters.vaultUpload,
     parseVaultDocumentUpload,
     verifyCsrf,
     vaultController.uploadDocument
@@ -50,6 +69,7 @@ export function createTenantRouter(
   router.post(
     '/vault/documents/:docId/ocr',
     requireTenantOwner,
+    rateLimiters.vaultOcr,
     verifyCsrf,
     vaultController.rerunDocumentOcr
   );

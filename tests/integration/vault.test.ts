@@ -174,6 +174,12 @@ describe('Multi-Phone Cards, Private Vault, OCR Search & Master Blindness Integr
       });
     expect(goodUnlock.status).toBe(302);
 
+    // SEC-02 Verification: vc_vault_secret MUST be a Host-Only cookie (no Domain= attribute)
+    const setCookies = (goodUnlock.headers['set-cookie'] as string[]) || [];
+    const vaultSecretCookie = setCookies.find((c) => c.startsWith('vc_vault_secret='));
+    expect(vaultSecretCookie).toBeDefined();
+    expect(vaultSecretCookie).not.toMatch(/domain=/i);
+
     // 4. Save NID, Academics w/ Semester Results, Present & Permanent Addresses
     const unlockedAgain = await ownerAgent.get('/vault?__tenant=nadia');
     const profCsrf = extractCsrf(unlockedAgain.text);
@@ -331,5 +337,66 @@ describe('Multi-Phone Cards, Private Vault, OCR Search & Master Blindness Integr
     expect(jsonExport.text).not.toContain('9988112233445');
     expect(jsonExport.text).not.toContain('E0998877');
     expect(jsonExport.text).not.toContain('778899');
+  });
+
+  it('enforces strict rate limits on vault unlock (SEC-01)', async () => {
+    const userAgent = request.agent(app);
+
+    // 1. Sign up new test user
+    const sPage = await userAgent.get('/signup');
+    const sCsrf = extractCsrf(sPage.text);
+    await userAgent
+      .post('/signup')
+      .type('form')
+      .send({
+        _csrf: sCsrf,
+        username: 'ratelimituser',
+        email: 'rluser@example.com',
+        password: 'Password123!',
+        confirm_password: 'Password123!',
+        full_name: 'Rate Limit Test User',
+      });
+
+    // 2. Setup vault
+    const vPage = await userAgent.get('/vault?__tenant=ratelimituser');
+    const setupCsrf = extractCsrf(vPage.text);
+    await userAgent
+      .post('/vault/setup?__tenant=ratelimituser')
+      .type('form')
+      .send({
+        _csrf: setupCsrf,
+        passcode: 'SecretPass123!',
+        confirm_passcode: 'SecretPass123!',
+      });
+
+    // 3. Lock vault
+    const uPage = await userAgent.get('/vault?__tenant=ratelimituser');
+    const lCsrf = extractCsrf(uPage.text);
+    await userAgent
+      .post('/vault/lock?__tenant=ratelimituser')
+      .type('form')
+      .send({ _csrf: lCsrf });
+
+    // 4. Setup was attempt #1. Send 4 failed unlock attempts (attempts #2, #3, #4, #5)
+    const lockedView = await userAgent.get('/vault?__tenant=ratelimituser');
+    let currentCsrf = extractCsrf(lockedView.text);
+
+    for (let i = 0; i < 4; i++) {
+      const res = await userAgent
+        .post('/vault/unlock?__tenant=ratelimituser')
+        .type('form')
+        .send({ _csrf: currentCsrf, passcode: `WrongPin${i}` });
+      expect(res.status).toBe(401);
+      const match = res.text.match(/name="_csrf"\s+value="([^"]+)"/);
+      if (match) currentCsrf = match[1];
+    }
+
+    // 5. Attempt #6 (exceeding limit of 5 per minute) must be rejected with 429 Too Many Requests
+    const rateLimitedRes = await userAgent
+      .post('/vault/unlock?__tenant=ratelimituser')
+      .type('form')
+      .send({ _csrf: currentCsrf, passcode: 'WrongPin4' });
+    expect(rateLimitedRes.status).toBe(429);
+    expect(rateLimitedRes.text).toContain('Too many vault passcode attempts');
   });
 });

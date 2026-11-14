@@ -6,6 +6,9 @@ export interface AppRateLimiters {
   login: RateLimitRequestHandler;
   usernameCheck: RateLimitRequestHandler;
   qr: RateLimitRequestHandler;
+  vaultUnlock: RateLimitRequestHandler;
+  vaultUpload: RateLimitRequestHandler;
+  vaultOcr: RateLimitRequestHandler;
 }
 
 /**
@@ -69,6 +72,69 @@ export function createRateLimiters(): AppRateLimiters {
           new RateLimitError(
             'Too many QR generation requests. Please wait a moment.',
             'QR_RATE_LIMIT'
+          )
+        );
+      },
+    }),
+
+    vaultUnlock: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 5, // strict: 5 unlock attempts per minute per tenant/IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      validate: { ip: false },
+      keyGenerator: (req) => {
+        const tenant = (req as { tenant?: string }).tenant || '';
+        const userId = (req as { currentUser?: { id: number } }).currentUser?.id || '';
+        return `${req.ip}_${tenant}_${userId}`;
+      },
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Too many vault passcode attempts. Please wait a minute before trying again.',
+            'VAULT_UNLOCK_RATE_LIMIT'
+          )
+        );
+      },
+    }),
+
+    vaultUpload: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 10, // max 10 document uploads per minute per tenant/IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      validate: { ip: false },
+      keyGenerator: (req) => {
+        const tenant = (req as { tenant?: string }).tenant || '';
+        const userId = (req as { currentUser?: { id: number } }).currentUser?.id || '';
+        return `${req.ip}_${tenant}_${userId}`;
+      },
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'Upload rate limit exceeded. Please wait a moment before uploading additional documents.',
+            'VAULT_UPLOAD_RATE_LIMIT'
+          )
+        );
+      },
+    }),
+
+    vaultOcr: rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      limit: 5, // max 5 OCR requests per minute per tenant/IP
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      validate: { ip: false },
+      keyGenerator: (req) => {
+        const tenant = (req as { tenant?: string }).tenant || '';
+        const userId = (req as { currentUser?: { id: number } }).currentUser?.id || '';
+        return `${req.ip}_${tenant}_${userId}`;
+      },
+      handler: (_req, _res, next) => {
+        next(
+          new RateLimitError(
+            'OCR processing rate limit exceeded. Please wait a moment before requesting OCR again.',
+            'VAULT_OCR_RATE_LIMIT'
           )
         );
       },
