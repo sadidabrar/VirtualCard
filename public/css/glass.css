@@ -703,7 +703,7 @@ p {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* Mobile Navigation Hamburger & Dropdown */
@@ -2074,9 +2074,7 @@ p {
     padding: 0.6rem 0.85rem;
     border-radius: var(--radius-lg);
     gap: 0.65rem;
-  }
-  .glass-nav-links {
-    gap: 0.4rem;
+    flex-wrap: nowrap;
   }
   .workspace-switcher {
     width: 100%;

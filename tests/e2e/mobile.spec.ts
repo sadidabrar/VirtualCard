@@ -39,6 +39,21 @@ test.describe('Mobile Browser Ergonomics & Touch Viewport', () => {
     // Click outside to dismiss
     await page.mouse.click(10, 500);
     await expect(page.locator('.glass-nav-mobile')).not.toHaveAttribute('open', '');
+
+    // Check Subdomain Quick Claim bar on mobile: button is full width (no empty void space)
+    const claimBar = page.locator('.claim-bar');
+    const claimBtn = claimBar.locator('button[type="submit"]');
+    await expect(claimBar).toBeVisible();
+    await expect(claimBtn).toBeVisible();
+
+    const barBox = await claimBar.boundingBox();
+    const btnBox = await claimBtn.boundingBox();
+    expect(barBox).not.toBeNull();
+    expect(btnBox).not.toBeNull();
+    if (barBox && btnBox) {
+      // Button should fill at least 85% of claimBar width on phone (no awkward half-empty void)
+      expect(btnBox.width / barBox.width).toBeGreaterThanOrEqual(0.85);
+    }
   });
 
   test('2. Login page: clear password placeholder and 16px font-size to prevent iOS Safari auto-zoom', async ({ page }) => {
