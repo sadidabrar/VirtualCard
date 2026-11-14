@@ -642,4 +642,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderExtraSocialRows();
   }
+
+  // 12. Mobile view switcher (Edit Form vs Live Preview)
+  const mobileTabEdit = document.getElementById('mobile-tab-edit');
+  const mobileTabPreview = document.getElementById('mobile-tab-preview');
+  const editorLayout = document.getElementById('editor-layout');
+
+  function setMobileView(view) {
+    if (!editorLayout) return;
+    editorLayout.dataset.mobileView = view;
+    if (view === 'preview') {
+      mobileTabPreview?.classList.add('is-active');
+      mobileTabPreview?.setAttribute('aria-selected', 'true');
+      mobileTabEdit?.classList.remove('is-active');
+      mobileTabEdit?.setAttribute('aria-selected', 'false');
+    } else {
+      mobileTabEdit?.classList.add('is-active');
+      mobileTabEdit?.setAttribute('aria-selected', 'true');
+      mobileTabPreview?.classList.remove('is-active');
+      mobileTabPreview?.setAttribute('aria-selected', 'false');
+    }
+  }
+
+  mobileTabEdit?.addEventListener('click', () => setMobileView('edit'));
+  mobileTabPreview?.addEventListener('click', () => setMobileView('preview'));
+
+  // 13. Mobile details dropdown outside-click dismiss
+  document.addEventListener('click', (event) => {
+    const mobileNavs = document.querySelectorAll('.glass-nav-mobile[open]');
+    mobileNavs.forEach((details) => {
+      if (!details.contains(event.target)) {
+        details.removeAttribute('open');
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      document.querySelectorAll('.glass-nav-mobile[open]').forEach((d) => d.removeAttribute('open'));
+    }
+  });
 });
