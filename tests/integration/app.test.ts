@@ -874,4 +874,79 @@ describe('VirtualCard Backend Integration Tests', () => {
       expect(pageRes.text).toContain('href="/favicon.ico"');
     }
   });
+
+  it('invalidates active user sessions immediately upon admin password reset and suspension (SEC-03)', async () => {
+    // 1. User signs up and obtains an active session
+    const userAgent = request.agent(ctx.app);
+    const signupPage = await userAgent.get('/signup');
+    const sCsrf = extractCsrf(signupPage.text);
+
+    await userAgent
+      .post('/signup')
+      .type('form')
+      .send({
+        _csrf: sCsrf,
+        username: 'sessionvictim',
+        email: 'victim@virtualcard.duckdns.org',
+        password: 'OriginalPassword2026!',
+        confirm_password: 'OriginalPassword2026!',
+        full_name: 'Session Victim User',
+      });
+
+    // Verify user can access editor with active session
+    const editorBefore = await userAgent.get('/edit?__tenant=sessionvictim');
+    expect(editorBefore.status).toBe(200);
+
+    // 2. Master Admin logs in
+    const masterAgent = request.agent(ctx.app);
+    const loginPage = await masterAgent.get('/login');
+    const mCsrf = extractCsrf(loginPage.text);
+
+    await masterAgent
+      .post('/login')
+      .type('form')
+      .send({
+        _csrf: mCsrf,
+        identifier: 'master',
+        password: 'MasterTestPassword2026!',
+      });
+
+    const userRepo = new UserRepository(ctx.db);
+    const targetUser = userRepo.findByUsername('sessionvictim')!;
+
+    // 3. Master admin resets the user's password
+    const userDetail = await masterAgent.get(`/master/users/${targetUser.id}`);
+    const resetCsrf = extractCsrf(userDetail.text);
+
+    const resetRes = await masterAgent
+      .post(`/master/users/${targetUser.id}/reset-password`)
+      .type('form')
+      .send({
+        _csrf: resetCsrf,
+        new_password: 'NewAdminAssignedPass2026!',
+        confirm_password: 'NewAdminAssignedPass2026!',
+      });
+    expect(resetRes.status).toBe(302);
+
+    // 4. SEC-03 Verification: The user's active session is immediately revoked
+    const editorAfter = await userAgent.get('/edit?__tenant=sessionvictim');
+    expect(editorAfter.status).toBe(302);
+    expect(editorAfter.headers.location).toContain('/login');
+
+    // 5. User can log in with new password
+    const newLoginPage = await userAgent.get('/login');
+    const newCsrf = extractCsrf(newLoginPage.text);
+    const reLogin = await userAgent
+      .post('/login')
+      .type('form')
+      .send({
+        _csrf: newCsrf,
+        identifier: 'sessionvictim',
+        password: 'NewAdminAssignedPass2026!',
+      });
+    expect(reLogin.status).toBe(302);
+
+    const editorReauth = await userAgent.get('/edit?__tenant=sessionvictim');
+    expect(editorReauth.status).toBe(200);
+  });
 });

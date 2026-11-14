@@ -18,3 +18,17 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
     return false;
   }
 }
+
+let dummyHashCache: string | null = null;
+
+/**
+ * Executes a real Argon2id verification with the same cost parameters against
+ * a cached dummy hash. Used to equalize response times for non-existent users
+ * and eliminate timing side-channel user enumeration (SEC-06).
+ */
+export async function dummyVerifyPassword(password: string): Promise<void> {
+  if (!dummyHashCache) {
+    dummyHashCache = await hashPassword('__virtualcard_timing_dummy_password_seed__');
+  }
+  await verifyPassword(dummyHashCache, password);
+}

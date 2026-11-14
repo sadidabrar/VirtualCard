@@ -75,6 +75,22 @@ export class UserRepository {
       .run();
   }
 
+  /**
+   * Immediately invalidates all active session rows for the target user from SQLite (SEC-03).
+   * Matches both integer and string encoded user IDs inside the JSON sess payload.
+   */
+  deleteSessionsByUserId(userId: number): number {
+    try {
+      const result = this.db.run(
+        sql`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ${userId} OR json_extract(sess, '$.userId') = ${String(userId)}`
+      );
+      return result.changes;
+    } catch {
+      // Graceful fallback if sessions table is not initialized yet
+      return 0;
+    }
+  }
+
   deleteById(id: number): void {
     this.db.delete(users).where(eq(users.id, id)).run();
   }

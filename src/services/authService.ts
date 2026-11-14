@@ -2,7 +2,7 @@ import type { UserRepository } from '../repositories/userRepository.js';
 import type { SafeUser, UsernameAvailabilityResult } from '../types/domain.js';
 import type { SignupBody } from '../validators/auth.js';
 import { validateUsernameRules } from '../validators/common.js';
-import { hashPassword, verifyPassword } from '../lib/password.js';
+import { hashPassword, verifyPassword, dummyVerifyPassword } from '../lib/password.js';
 import { buildSocialsJson } from '../lib/sanitize.js';
 import { processAndSaveAvatar, deleteAvatarFile } from '../lib/avatar.js';
 import { AuthError, ConflictError } from '../types/errors.js';
@@ -135,6 +135,8 @@ export class AuthService {
   async login(identifier: string, password: string): Promise<SafeUser> {
     const user = this.userRepo.findByUsernameOrEmail(identifier);
     if (!user) {
+      // SEC-06: Normalize execution timing to prevent username enumeration via timing side-channels
+      await dummyVerifyPassword(password);
       throw new AuthError(
         'Invalid credentials. Please check your username/email and password.',
         401,

@@ -166,6 +166,9 @@ export class MasterService {
     }
 
     this.userRepo.updateStatus(targetUserId, status, new Date().toISOString());
+    if (status === 'suspended') {
+      this.userRepo.deleteSessionsByUserId(targetUserId);
+    }
     return this.getUserDetail(targetUserId);
   }
 
@@ -173,6 +176,8 @@ export class MasterService {
     this.getUserDetail(targetUserId);
     const passwordHash = await hashPassword(newPassword);
     this.userRepo.updatePasswordHash(targetUserId, passwordHash, new Date().toISOString());
+    // SEC-03: Immediately invalidate all active sessions so compromised sessions cannot persist
+    this.userRepo.deleteSessionsByUserId(targetUserId);
   }
 
   async deleteUser(
@@ -196,6 +201,7 @@ export class MasterService {
     const deletedUsername = existing.user.username;
 
     this.userRepo.deleteById(targetUserId);
+    this.userRepo.deleteSessionsByUserId(targetUserId);
     if (avatarUrl) {
       await deleteAvatarFile(avatarUrl, this.uploadDir);
     }

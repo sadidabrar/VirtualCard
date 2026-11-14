@@ -22,9 +22,10 @@ if (!migrationStatus.upToDate) {
 
 const app = createApp({ env, db, sqliteDb, logger });
 
-const server = app.listen(env.PORT, () => {
+const server = app.listen(env.PORT, env.HOST, () => {
   logger.info(
     {
+      host: env.HOST,
       port: env.PORT,
       env: env.NODE_ENV,
       baseDomain: env.BASE_DOMAIN,
