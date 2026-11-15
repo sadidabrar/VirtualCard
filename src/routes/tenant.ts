@@ -37,7 +37,7 @@ export function createTenantRouter(
     controller.updatePassword
   );
 
-  // Private Zero-Knowledge Personal Vault (strictly owner-only, never exposed publicly or to master)
+  // Private Encrypted Personal Vault (strictly owner-only, envelope-encrypted at rest)
   router.get('/vault', requireTenantOwner, vaultController.showVault);
   router.post(
     '/vault/setup',

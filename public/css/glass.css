@@ -1866,7 +1866,7 @@ p {
   transform: translateY(-1px);
 }
 
-/* Private Zero-Knowledge Vault UI */
+/* Private Encrypted Vault UI (AES-256-GCM Envelope Encryption) */
 .vault-shield-card {
   max-width: 520px;
   margin: 2rem auto 4rem;

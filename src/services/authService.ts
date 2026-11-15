@@ -43,20 +43,11 @@ export class AuthService {
     avatarFile?: Express.Multer.File
   ): Promise<{ userId: number; username: string }> {
     const existingByUsername = this.userRepo.findByUsername(input.username);
-    if (existingByUsername) {
-      throw new ConflictError(
-        `Username "${input.username}" is already taken.`,
-        'USERNAME_TAKEN',
-        'username'
-      );
-    }
-
     const existingByEmail = this.userRepo.findByEmail(input.email);
-    if (existingByEmail) {
+    if (existingByUsername || existingByEmail) {
       throw new ConflictError(
-        'An account with this email address already exists.',
-        'EMAIL_TAKEN',
-        'email'
+        'An account with this username or email already exists. Please choose another or log in.',
+        'ACCOUNT_ALREADY_EXISTS'
       );
     }
 
@@ -114,18 +105,13 @@ export class AuthService {
       }
 
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('UNIQUE constraint failed: users.username')) {
+      if (
+        msg.includes('UNIQUE constraint failed: users.username') ||
+        msg.includes('UNIQUE constraint failed: users.email')
+      ) {
         throw new ConflictError(
-          `Username "${input.username}" was just claimed by someone else. Please pick another.`,
-          'USERNAME_TAKEN',
-          'username'
-        );
-      }
-      if (msg.includes('UNIQUE constraint failed: users.email')) {
-        throw new ConflictError(
-          'An account with this email address already exists.',
-          'EMAIL_TAKEN',
-          'email'
+          'An account with this username or email already exists. Please choose another or log in.',
+          'ACCOUNT_ALREADY_EXISTS'
         );
       }
       throw err;

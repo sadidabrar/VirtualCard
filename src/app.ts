@@ -100,8 +100,31 @@ export function createApp(deps: AppDependencies): Express {
       },
       crossOriginEmbedderPolicy: false,
       referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      strictTransportSecurity: false,
     })
   );
+
+  // VC-05: Enforce HTTPS in production & advertise HSTS only over secure transport
+  if (isProd) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path === '/healthz' || req.path === '/readyz') {
+        return next();
+      }
+      const forwardedProto = req.headers['x-forwarded-proto'];
+      if (forwardedProto === 'http') {
+        const host = req.headers.host || env.BASE_DOMAIN;
+        return res.redirect(301, `https://${host}${req.originalUrl}`);
+      }
+      next();
+    });
+  }
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isProd && (req.secure || req.headers['x-forwarded-proto'] === 'https')) {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
 
   // 3. DI Composition (Repositories -> Services -> Controllers)
   const userRepo = new UserRepository(db);
@@ -147,6 +170,7 @@ export function createApp(deps: AppDependencies): Express {
   // 5. Static Assets & Controlled Media Serving
   app.use(
     express.static(path.join(__dirname, '../public'), {
+      dotfiles: 'allow',
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
           res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
@@ -176,7 +200,7 @@ export function createApp(deps: AppDependencies): Express {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: isProd ? 'auto' : false,
+        secure: isProd ? true : false,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },

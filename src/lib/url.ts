@@ -108,7 +108,11 @@ export function setVaultSecretCookie(
   secretB64: string,
   _baseDomain?: string
 ): void {
-  const isHttps = req.secure || req.protocol === 'https';
+  const isHttps =
+    req.secure ||
+    req.protocol === 'https' ||
+    req.headers['x-forwarded-proto'] === 'https' ||
+    process.env.NODE_ENV === 'production';
   res.cookie(VAULT_SECRET_COOKIE, secretB64, {
     httpOnly: true,
     sameSite: 'lax',

@@ -58,6 +58,29 @@ describe('VirtualCard Backend Integration Tests', () => {
     fs.rmSync(ctx.uploadDir, { recursive: true, force: true });
   });
 
+  it('serves /.well-known/security.txt and redirects /security.txt per RFC 9116', async () => {
+    const wellKnown = await request(ctx.app).get('/.well-known/security.txt');
+    expect(wellKnown.status).toBe(200);
+    expect(wellKnown.text).toContain('Contact: mailto:security@virtualcard.duckdns.org');
+    expect(wellKnown.text).toContain('Canonical: https://virtualcard.duckdns.org/.well-known/security.txt');
+
+    const redirectRes = await request(ctx.app).get('/security.txt');
+    expect(redirectRes.status).toBe(301);
+    expect(redirectRes.headers.location).toBe('/.well-known/security.txt');
+  });
+
+  it('handles malformed JSON body with HTTP 400 MALFORMED_JSON (VC-06)', async () => {
+    const res = await request(ctx.app)
+      .post('/api/username-available')
+      .set('Content-Type', 'application/json')
+      .set('Accept', 'application/json')
+      .send('{"invalid-json":');
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      error: { code: 'MALFORMED_JSON', message: 'Invalid JSON body syntax.' },
+    });
+  });
+
   it('serves /healthz and /readyz bypassing tenant middleware and sets X-Request-Id', async () => {
     const h = await request(ctx.app)
       .get('/healthz')
@@ -175,7 +198,21 @@ describe('VirtualCard Backend Integration Tests', () => {
     });
     expect(dupRes.status).toBe(409);
     expect(dupRes.body).toMatchObject({
-      error: { code: 'USERNAME_TAKEN', field: 'username' },
+      error: { code: 'ACCOUNT_ALREADY_EXISTS' },
+    });
+
+    // 7. Duplicate email conflict returns uniform error (VC-04)
+    const dupEmailRes = await agent.post('/signup').set('Accept', 'application/json').type('form').send({
+      _csrf: csrf,
+      username: 'uniqueusername99',
+      email: 'alice@example.com',
+      password: 'Password123!',
+      confirm_password: 'Password123!',
+      full_name: 'Duplicate Email Alice',
+    });
+    expect(dupEmailRes.status).toBe(409);
+    expect(dupEmailRes.body).toMatchObject({
+      error: { code: 'ACCOUNT_ALREADY_EXISTS' },
     });
   });
 
@@ -736,13 +773,12 @@ describe('VirtualCard Backend Integration Tests', () => {
       expect(cssRes.status).toBe(200);
       expect(cssRes.headers['content-type']).toContain('text/css');
 
-      // Direct HTTP login request does not mark cookie Secure so LAN IP sessions still work
+      // In production with secure: true, express-session strictly refuses to issue cookies over plain HTTP (VC-02)
       const httpLoginGet = await request(prodApp).get('/login');
       const httpCookies = httpLoginGet.headers['set-cookie'] ?? [];
-      expect(httpCookies.some((c) => c.startsWith('vc_session='))).toBe(true);
-      expect(httpCookies.some((c) => c.includes('Secure'))).toBe(false);
+      expect(httpCookies.some((c) => c.startsWith('vc_session='))).toBe(false);
 
-      // Behind Nginx Proxy Manager (X-Forwarded-Proto: https), session cookie gets Secure flag
+      // Over HTTPS (X-Forwarded-Proto: https), session cookie is issued with the Secure flag
       const httpsLoginGet = await request(prodApp)
         .get('/login')
         .set('Host', 'virtualcard.duckdns.org')

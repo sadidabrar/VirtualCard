@@ -16,6 +16,7 @@ export function createRootRouter(
     controller.checkUsernameAvailable
   );
   router.get('/u/:username', controller.redirectSubdomain);
+  router.get('/security.txt', (_req, res) => res.redirect(301, '/.well-known/security.txt'));
 
   return router;
 }

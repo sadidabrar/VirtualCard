@@ -55,7 +55,7 @@ describe('Multi-Phone Cards, Private Vault, OCR Search & Master Blindness Integr
     if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('supports multi-phone vCard, zero-knowledge vault encryption, compressed OCR search, and strictly blinds Master admin', async () => {
+  it('supports multi-phone vCard, private AES-256-GCM vault encryption, compressed OCR search, and strictly blinds Master admin', async () => {
     const ownerAgent = request.agent(app);
 
     // 1. Owner signs up

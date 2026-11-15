@@ -35,6 +35,15 @@ export function createErrorHandler(isProd: boolean): ErrorRequestHandler {
         err.code === 'LIMIT_FILE_SIZE'
           ? 'Avatar image exceeds the maximum allowed size of 5 MB.'
           : err.message;
+    } else if (
+      err instanceof SyntaxError &&
+      'status' in err &&
+      (err as { status?: number }).status === 400 &&
+      'body' in err
+    ) {
+      statusCode = 400;
+      code = 'MALFORMED_JSON';
+      message = 'Invalid JSON body syntax.';
     } else if (err instanceof AppError) {
       statusCode = err.statusCode;
       code = err.code;
